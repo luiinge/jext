@@ -26,7 +26,10 @@ import jext.internal.ExtensionVersion;
 import jext.internal.InternalExtensionLoader;
 
 
-/** Component that provides operations in order to retrieve instances of * classes annotated with {@link Extension}. */
+/**
+ *  Component that provides operations in order to retrieve instances of
+ *  classes annotated with {@link Extension}.
+ */
 public class ExtensionManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ExtensionManager.class);
@@ -108,8 +111,8 @@ public class ExtensionManager {
      * alternatives, the one with highest priority will be used.
      *
      * @param extensionPoint The extension point type
-     * @param condition      Only extensions satisfying this condition will be
-     *                       returned
+     * @param condition Only extensions satisfying this condition will be
+     * returned
      * @return An optional object either empty or wrapping the instance
      */
     public <T> Optional<T> getExtensionThatSatisfy(
@@ -126,8 +129,8 @@ public class ExtensionManager {
      * alternatives, the one with highest priority will be used.
      *
      * @param extensionPoint The extension point type
-     * @param condition      Only extensions which their metadata satisfies this
-     *                       condition will be returned
+     * @param condition Only extensions which their metadata satisfies this
+     * condition will be returned
      * @return An optional object either empty or wrapping the instance
      */
     public <T> Optional<T> getExtensionThatSatisfyMetadata(
@@ -136,6 +139,36 @@ public class ExtensionManager {
     ) {
         return loadFirst(ExtensionLoadContext.satisfyingData(extensionPoint, condition));
     }
+
+
+
+    /**
+     * Retrieves the instance for the given extension point that satisfies the
+     * given provider, name and version, if any exists. The retrieved extension may
+     * be a higher but compatible version if exact version is not found.
+     * <p>
+     * In the case of existing multiple
+     * alternatives, the one with highest priority will be used.
+     *
+     * @param extensionPoint The extension point type
+     * @param provider The extension provider
+     * @param name The extension name
+     * @param version The minimal version
+     * @return An optional object either empty or wrapping the instance
+     */
+    public <T> Optional<T> getExtensionThatSatisfyMetadata(
+        Class<T> extensionPoint,
+        String provider,
+        String name,
+        String version
+    ) {
+        return loadFirst(
+            ExtensionLoadContext.satisfyingData(extensionPoint, identifier(provider,name,version))
+        );
+    }
+
+
+
 
 
     /**
@@ -155,8 +188,7 @@ public class ExtensionManager {
      * extension point that satisfies the specified condition.
      *
      * @param extensionPoint The extension point type
-     * @param condition      Only extensions satisfying this condition will be
-     *                       returned
+     * @param condition Only extensions satisfying this condition will be returned
      * @return A list with the extensions, empty if none was found
      */
     public <T> Stream<T> getExtensionsThatSatisfy(Class<T> extensionPoint, Predicate<T> condition) {
@@ -169,8 +201,8 @@ public class ExtensionManager {
      * extension point that satisfies the specified condition.
      *
      * @param extensionPoint The extension point type
-     * @param condition      Only extensions which their metadata satisfies this
-     *                       condition will be returned
+     * @param condition Only extensions which their metadata satisfies this
+     * condition will be returned
      * @return A list with the extensions, empty if none was found
      */
     public <T> Stream<T> getExtensionsThatSatisfyMetadata(
@@ -204,7 +236,7 @@ public class ExtensionManager {
         case SINGLETON:
             instance = singleton(extension);
             break;
-        case FRESH:
+        case NEW:
             instance = newInstance(extension);
             break;
         default:
@@ -349,9 +381,9 @@ public class ExtensionManager {
 
 
     private boolean areCompatible(ExtensionPoint extensionPointData, Extension extensionData) {
-        ExtensionVersion extensionPointVersion = new ExtensionVersion(extensionPointData.version());
+        ExtensionVersion extensionPointVersion = ExtensionVersion.of(extensionPointData.version());
         try {
-            ExtensionVersion extensionDataPointVersion = new ExtensionVersion(
+            ExtensionVersion extensionDataPointVersion = ExtensionVersion.of(
                 extensionData.extensionPointVersion()
             );
             return extensionDataPointVersion.isCompatibleWith(extensionPointVersion);
@@ -413,6 +445,15 @@ public class ExtensionManager {
         List<ExtensionLoader> loaders = new ArrayList<>();
         ServiceLoader.load(ExtensionLoader.class).forEach(loaders::add);
         return loaders;
+    }
+
+
+    private static Predicate<Extension> identifier(String provider, String name, String version) {
+        return extension ->
+            extension.provider().equalsIgnoreCase(provider) &&
+            extension.name().equalsIgnoreCase(name) &&
+            ExtensionVersion.of(extension.version()).isCompatibleWith(ExtensionVersion.of(version))
+        ;
     }
 
 }

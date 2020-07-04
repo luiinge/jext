@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExtensionManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jExt</a> &gt; <a href="index.source.html" class="el_package">jext</a> &gt; <span class="el_source">ExtensionManager.java</span></div><h1>ExtensionManager.java</h1><pre class="source lang-java linenums">/**
+ * @author Luis Iñesta Gelabert - linesta@iti.es | luiinge@gmail.com
+ */
+package jext;
+
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.ServiceLoader;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import jext.internal.ExtensionLoadContext;
+import jext.internal.ExtensionVersion;
+import jext.internal.InternalExtensionLoader;
+
+
+/**
+ *  Component that provides operations in order to retrieve instances of
+ *  classes annotated with {@link Extension}.
+ */
+public class ExtensionManager {
+
+<span class="fc" id="L35">    private static final Logger LOGGER = LoggerFactory.getLogger(ExtensionManager.class);</span>
+
+    private final ClassLoader[] classLoaders;
+<span class="fc" id="L38">    private final ExtensionLoader builtInExtensionLoader = new InternalExtensionLoader();</span>
+<span class="fc" id="L39">    private final List&lt;ExtensionLoader&gt; extensionLoaders = extensionLoaders();</span>
+
+<span class="fc" id="L41">    private final Map&lt;Class&lt;?&gt;, Object&gt; singletons = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L42">    private final Map&lt;Class&lt;?&gt;, Set&lt;Class&lt;?&gt;&gt;&gt; invalidExtensions = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L43">    private final Map&lt;Class&lt;?&gt;, Set&lt;Class&lt;?&gt;&gt;&gt; validExtensions = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L44">    private final Map&lt;Object, Extension&gt; extensionMetadata = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L45">    private final Map&lt;Class&lt;?&gt;, List&lt;Object&gt;&gt; cachedValidExtensionInstances = new HashMap&lt;&gt;();</span>
+
+
+    /**
+     * Creates a new extension manager using the default class loader of the
+     * current thread
+     */
+    public ExtensionManager() {
+<span class="fc" id="L53">        this(Thread.currentThread().getContextClassLoader());</span>
+<span class="fc" id="L54">    }</span>
+
+
+    /**
+     * Creates a new extension manager restricted to a specific set of class
+     * loaders
+     *
+     * @param loaders The class loaders used for loading extension classes
+     */
+<span class="fc" id="L63">    public ExtensionManager(ClassLoader... loaders) {</span>
+<span class="fc" id="L64">        this.classLoaders = loaders;</span>
+<span class="fc" id="L65">    }</span>
+
+
+    /**
+     * Get the extension annotated metadata for a given extension
+     *
+     * @param extension A extension instance
+     * @return The extension metadata, or &lt;code&gt;null&lt;/code&gt; if passed object is
+     *         not an extension
+     */
+    public &lt;T&gt; Extension getExtensionMetadata(T extension) {
+<span class="fc" id="L76">        return extensionMetadata.computeIfAbsent(</span>
+            extension,
+<span class="fc" id="L78">            e -&gt; e.getClass().getAnnotation(Extension.class)</span>
+        );
+    }
+
+
+    /**
+     * Get all the extension annotated metadata for a given extension point
+     *
+     * @param extensionPoint A extension point
+     * @return The extension metadata, or &lt;code&gt;null&lt;/code&gt; if passed object is
+     *         not an extension
+     */
+    public &lt;T&gt; Stream&lt;Extension&gt; getExtensionMetadata(Class&lt;T&gt; extensionPoint) {
+<span class="nc" id="L91">        return getExtensions(extensionPoint).map(this::getExtensionMetadata);</span>
+    }
+
+
+    /**
+     * Retrieves an instance for the given extension point, if any exists. In the
+     * case of existing multiple alternatives, the one with highest priority will
+     * be used.
+     *
+     * @param extensionPoint The extension point type
+     * @return An optional object either empty or wrapping the instance
+     */
+    public &lt;T&gt; Optional&lt;T&gt; getExtension(Class&lt;T&gt; extensionPoint) {
+<span class="fc" id="L104">        return loadFirst(ExtensionLoadContext.all(extensionPoint));</span>
+    }
+
+
+    /**
+     * Retrieves the instance for the given extension point that satisfies the
+     * specified condition, if any exists. In the case of existing multiple
+     * alternatives, the one with highest priority will be used.
+     *
+     * @param extensionPoint The extension point type
+     * @param condition Only extensions satisfying this condition will be
+     * returned
+     * @return An optional object either empty or wrapping the instance
+     */
+    public &lt;T&gt; Optional&lt;T&gt; getExtensionThatSatisfy(
+        Class&lt;T&gt; extensionPoint,
+        Predicate&lt;T&gt; condition
+    ) {
+<span class="nc" id="L122">        return loadFirst(ExtensionLoadContext.satisfying(extensionPoint, condition));</span>
+    }
+
+
+    /**
+     * Retrieves the instance for the given extension point that satisfies the
+     * specified condition, if any exists. In the case of existing multiple
+     * alternatives, the one with highest priority will be used.
+     *
+     * @param extensionPoint The extension point type
+     * @param condition Only extensions which their metadata satisfies this
+     * condition will be returned
+     * @return An optional object either empty or wrapping the instance
+     */
+    public &lt;T&gt; Optional&lt;T&gt; getExtensionThatSatisfyMetadata(
+        Class&lt;T&gt; extensionPoint,
+        Predicate&lt;Extension&gt; condition
+    ) {
+<span class="nc" id="L140">        return loadFirst(ExtensionLoadContext.satisfyingData(extensionPoint, condition));</span>
+    }
+
+
+
+    /**
+     * Retrieves the instance for the given extension point that satisfies the
+     * given provider, name and version, if any exists. The retrieved extension may
+     * be a higher but compatible version if exact version is not found.
+     * &lt;p&gt;
+     * In the case of existing multiple
+     * alternatives, the one with highest priority will be used.
+     *
+     * @param extensionPoint The extension point type
+     * @param provider The extension provider
+     * @param name The extension name
+     * @param version The minimal version
+     * @return An optional object either empty or wrapping the instance
+     */
+    public &lt;T&gt; Optional&lt;T&gt; getExtensionThatSatisfyMetadata(
+        Class&lt;T&gt; extensionPoint,
+        String provider,
+        String name,
+        String version
+    ) {
+<span class="nc" id="L165">        return loadFirst(</span>
+<span class="nc" id="L166">            ExtensionLoadContext.satisfyingData(extensionPoint, identifier(provider,name,version))</span>
+        );
+    }
+
+
+
+
+
+    /**
+     * Retrieves a priority-ordered list with all extensions for the given
+     * extension point.
+     *
+     * @param extensionPoint The extension point type
+     * @return A list with the extensions, empty if none was found
+     */
+    public &lt;T&gt; Stream&lt;T&gt; getExtensions(Class&lt;T&gt; extensionPoint) {
+<span class="fc" id="L182">        return loadAll(ExtensionLoadContext.all(extensionPoint));</span>
+    }
+
+
+    /**
+     * Retrieves a priority-ordered list with all then extensions for the given
+     * extension point that satisfies the specified condition.
+     *
+     * @param extensionPoint The extension point type
+     * @param condition Only extensions satisfying this condition will be returned
+     * @return A list with the extensions, empty if none was found
+     */
+    public &lt;T&gt; Stream&lt;T&gt; getExtensionsThatSatisfy(Class&lt;T&gt; extensionPoint, Predicate&lt;T&gt; condition) {
+<span class="fc" id="L195">        return loadAll(ExtensionLoadContext.satisfying(extensionPoint, condition));</span>
+    }
+
+
+    /**
+     * Retrieves a priority-ordered list with all then extensions for the given
+     * extension point that satisfies the specified condition.
+     *
+     * @param extensionPoint The extension point type
+     * @param condition Only extensions which their metadata satisfies this
+     * condition will be returned
+     * @return A list with the extensions, empty if none was found
+     */
+    public &lt;T&gt; Stream&lt;T&gt; getExtensionsThatSatisfyMetadata(
+        Class&lt;T&gt; extensionPoint,
+        Predicate&lt;Extension&gt; condition
+    ) {
+<span class="fc" id="L212">        return loadAll(ExtensionLoadContext.satisfyingData(extensionPoint, condition));</span>
+    }
+
+
+    protected &lt;T&gt; Stream&lt;T&gt; loadAll(ExtensionLoadContext&lt;T&gt; context) {
+<span class="fc" id="L217">        return obtainCachedValidExtensions(context).stream()</span>
+<span class="fc" id="L218">            .filter(context.condition())</span>
+<span class="fc" id="L219">            .sorted(sortByPriority())</span>
+<span class="fc" id="L220">            .map(extension -&gt; resolveInstance(extension, context));</span>
+    }
+
+
+    protected &lt;T&gt; Optional&lt;T&gt; loadFirst(ExtensionLoadContext&lt;T&gt; context) {
+<span class="fc" id="L225">        return obtainCachedValidExtensions(context).stream()</span>
+<span class="fc" id="L226">            .filter(context.condition())</span>
+<span class="fc" id="L227">            .sorted(sortByPriority())</span>
+<span class="fc" id="L228">            .findFirst()</span>
+<span class="fc" id="L229">            .map(extension -&gt; resolveInstance(extension, context));</span>
+    }
+
+
+    protected &lt;T&gt; T resolveInstance(T extension, ExtensionLoadContext&lt;T&gt; context) {
+<span class="fc" id="L234">        T instance = null;</span>
+<span class="fc bfc" id="L235" title="All 3 branches covered.">        switch (context.extensionPointData().loadStrategy()) {</span>
+        case SINGLETON:
+<span class="fc" id="L237">            instance = singleton(extension);</span>
+<span class="fc" id="L238">            break;</span>
+        case NEW:
+<span class="fc" id="L240">            instance = newInstance(extension);</span>
+<span class="fc" id="L241">            break;</span>
+        default:
+<span class="fc" id="L243">            instance = extension;</span>
+        }
+<span class="fc" id="L245">        return instance;</span>
+    }
+
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    protected &lt;T&gt; List&lt;T&gt; obtainCachedValidExtensions(ExtensionLoadContext&lt;T&gt; context) {
+<span class="fc" id="L251">        List&lt;Object&gt; cache = cachedValidExtensionInstances.get(context.extensionPoint());</span>
+<span class="fc bfc" id="L252" title="All 2 branches covered.">        if (cache != null) {</span>
+<span class="fc" id="L253">            LOGGER.trace(&quot;{} :: Retrieved from cache [{}]&quot;, context, cache);</span>
+<span class="fc" id="L254">            return (List&lt;T&gt;) cache;</span>
+        }
+<span class="fc" id="L256">        List&lt;T&gt; extensions = obtainValidExtensions(context);</span>
+<span class="fc" id="L257">        cachedValidExtensionInstances.put(context.extensionPoint(), (List&lt;Object&gt;) extensions);</span>
+<span class="fc" id="L258">        return extensions;</span>
+    }
+
+
+    protected &lt;T&gt; List&lt;T&gt; obtainValidExtensions(ExtensionLoadContext&lt;T&gt; context) {
+
+<span class="fc" id="L264">        this.validExtensions.putIfAbsent(context.extensionPoint(), new HashSet&lt;&gt;());</span>
+<span class="fc" id="L265">        this.invalidExtensions.putIfAbsent(context.extensionPoint(), new HashSet&lt;&gt;());</span>
+
+<span class="fc" id="L267">        List&lt;T&gt; collectedExtensions = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L268" title="All 2 branches covered.">        for (ClassLoader classLoader : classLoaders) {</span>
+<span class="fc" id="L269">            collectValidExtensions(</span>
+<span class="fc" id="L270">                context.withInternalLoader(classLoader, builtInExtensionLoader),</span>
+                collectedExtensions
+            );
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">            for (ExtensionLoader extensionLoader : extensionLoaders) {</span>
+<span class="nc" id="L274">                collectValidExtensions(</span>
+<span class="nc" id="L275">                    context.withExternalLoader(classLoader, extensionLoader),</span>
+                    collectedExtensions
+                );
+<span class="nc" id="L278">            }</span>
+        }
+<span class="fc" id="L280">        filterOverridenExtensions(collectedExtensions);</span>
+<span class="fc" id="L281">        return collectedExtensions;</span>
+    }
+
+
+    private &lt;T&gt; void collectValidExtensions(
+        ExtensionLoadContext&lt;T&gt; context,
+        List&lt;T&gt; collectedExtensions
+    ) {
+<span class="fc" id="L289">        Class&lt;T&gt; extensionPoint = context.extensionPoint();</span>
+<span class="fc" id="L290">        LOGGER.trace(&quot;{} :: Searching...&quot;, context);</span>
+<span class="fc bfc" id="L291" title="All 2 branches covered.">        for (T extension : context.load()) {</span>
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">            if (hasBeenInvalidated(extensionPoint, extension)) {</span>
+<span class="nc" id="L293">                LOGGER.trace(</span>
+                    &quot;{} :: Found {} but ignored (it is marked as invalid)&quot;,
+                    context,
+                    extension
+                );
+<span class="nc" id="L298">                break;</span>
+            }
+<span class="pc bpc" id="L300" title="1 of 2 branches missed.">            if (!hasBeenValidated(extensionPoint, extension)) {</span>
+<span class="fc" id="L301">                boolean valid = validateExtension(context, extension);</span>
+<span class="fc bfc" id="L302" title="All 2 branches covered.">                if (valid) {</span>
+<span class="fc" id="L303">                    LOGGER.trace(&quot;{} :: Found {}&quot;, context, extension);</span>
+<span class="fc" id="L304">                    collectedExtensions.add(extension);</span>
+                } else {
+<span class="fc" id="L306">                    LOGGER.trace(</span>
+                        &quot;{} :: Found {} but ignored (marked as invalid)&quot;,
+                        context,
+                        extension
+                    );
+                }
+            }
+<span class="fc" id="L313">        }</span>
+<span class="fc" id="L314">    }</span>
+
+
+    protected &lt;T&gt; boolean validateExtension(ExtensionLoadContext&lt;T&gt; context, T extension) {
+<span class="fc" id="L318">        Class&lt;T&gt; extensionPoint = context.extensionPoint();</span>
+<span class="fc" id="L319">        ExtensionPoint extensionPointData = context.extensionPointData();</span>
+<span class="fc" id="L320">        Extension extensionData = getExtensionMetadata(extension);</span>
+
+<span class="pc bpc" id="L322" title="1 of 2 branches missed.">        if (extensionData == null) {</span>
+<span class="nc" id="L323">            LOGGER.warn(</span>
+                &quot;Class {} is not annotated with @Extension and will be ignored&quot;,
+<span class="nc" id="L325">                extension.getClass()</span>
+            );
+<span class="nc" id="L327">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
+<span class="nc" id="L328">            return false;</span>
+        }
+
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">        if (extensionData.externallyManaged() != context.isExternallyManaged()) {</span>
+<span class="nc" id="L332">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
+<span class="nc" id="L333">            return false;</span>
+        }
+
+<span class="fc bfc" id="L336" title="All 2 branches covered.">        if (!areCompatible(extensionPointData, extensionData)) {</span>
+<span class="fc" id="L337">            LOGGER.warn(</span>
+                &quot;Extension point version of {} ({}) is not compatible with expected version {}&quot;,
+<span class="fc" id="L339">                id(extensionData),</span>
+<span class="fc" id="L340">                extensionData.extensionPointVersion(),</span>
+<span class="fc" id="L341">                extensionPointData.version()</span>
+            );
+<span class="fc" id="L343">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
+<span class="fc" id="L344">            return false;</span>
+        }
+
+<span class="fc" id="L347">        this.validExtensions.get(extensionPoint).add(extension.getClass());</span>
+<span class="fc" id="L348">        return true;</span>
+    }
+
+
+    private &lt;T&gt; void filterOverridenExtensions(List&lt;T&gt; extensions) {
+
+<span class="fc" id="L354">        List&lt;T&gt; overridableExtensions = extensions.stream()</span>
+<span class="fc" id="L355">            .filter(extension -&gt; getExtensionMetadata(extension).overridable())</span>
+<span class="fc" id="L356">            .collect(Collectors.toList());</span>
+
+<span class="fc" id="L358">        Map&lt;String, T&gt; overridableExtensionClassNames = overridableExtensions.stream()</span>
+<span class="fc" id="L359">            .collect(</span>
+<span class="fc" id="L360">                Collectors.toMap(</span>
+<span class="fc" id="L361">                    extension -&gt; extension.getClass().getCanonicalName(),</span>
+<span class="fc" id="L362">                    Function.identity()</span>
+                )
+            );
+
+<span class="fc bfc" id="L366" title="All 2 branches covered.">        for (T extension : new ArrayList&lt;&gt;(extensions)) {</span>
+<span class="fc" id="L367">            Extension metadata = getExtensionMetadata(extension);</span>
+<span class="fc" id="L368">            T overridable = overridableExtensionClassNames.get(metadata.overrides());</span>
+<span class="pc bpc" id="L369" title="1 of 2 branches missed.">            if (overridable != null) {</span>
+<span class="nc" id="L370">                extensions.remove(overridable);</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">                if (LOGGER.isInfoEnabled()) {</span>
+<span class="nc" id="L372">                    LOGGER.info(</span>
+                        &quot;Extension {} overrides extension {}&quot;,
+<span class="nc" id="L374">                        id(getExtensionMetadata(extension)),</span>
+<span class="nc" id="L375">                        id(getExtensionMetadata(overridable))</span>
+                    );
+                }
+            }
+<span class="fc" id="L379">        }</span>
+<span class="fc" id="L380">    }</span>
+
+
+    private boolean areCompatible(ExtensionPoint extensionPointData, Extension extensionData) {
+<span class="fc" id="L384">        ExtensionVersion extensionPointVersion = ExtensionVersion.of(extensionPointData.version());</span>
+        try {
+<span class="fc" id="L386">            ExtensionVersion extensionDataPointVersion = ExtensionVersion.of(</span>
+<span class="fc" id="L387">                extensionData.extensionPointVersion()</span>
+            );
+<span class="fc" id="L389">            return extensionDataPointVersion.isCompatibleWith(extensionPointVersion);</span>
+<span class="nc" id="L390">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L391">            LOGGER.error(&quot;Bad extensionPointVersion in {}&quot;, id(extensionData));</span>
+<span class="nc" id="L392">            throw e;</span>
+        }
+    }
+
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private &lt;T&gt; T newInstance(T extension) {
+        try {
+<span class="fc" id="L400">            return (T) extension.getClass().getConstructor().newInstance();</span>
+<span class="nc" id="L401">        } catch (ReflectiveOperationException e) {</span>
+<span class="nc" id="L402">            LOGGER.error(</span>
+                &quot;Error loading new instance of {} : {}&quot;,
+<span class="nc" id="L404">                extension.getClass(),</span>
+<span class="nc" id="L405">                e.getMessage(),</span>
+                e
+            );
+<span class="nc" id="L408">            return null;</span>
+        }
+    }
+
+
+    private int getExtensionPriority(Object extension) {
+<span class="fc" id="L414">        return getExtensionMetadata(extension).priority();</span>
+    }
+
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private &lt;T&gt; T singleton(T extension) {
+<span class="fc" id="L420">        return (T) singletons.computeIfAbsent(extension.getClass(), x -&gt; extension);</span>
+    }
+
+
+    protected &lt;T&gt; boolean hasBeenValidated(Class&lt;T&gt; extensionPoint, T extension) {
+<span class="fc" id="L425">        return validExtensions.get(extensionPoint).contains(extension.getClass());</span>
+    }
+
+
+    protected &lt;T&gt; boolean hasBeenInvalidated(Class&lt;T&gt; extensionPoint, T extension) {
+<span class="fc" id="L430">        return invalidExtensions.get(extensionPoint).contains(extension.getClass());</span>
+    }
+
+
+    protected Comparator&lt;Object&gt; sortByPriority() {
+<span class="fc" id="L435">        return Comparator.comparingInt(this::getExtensionPriority);</span>
+    }
+
+
+    private static String id(Extension extension) {
+<span class="fc" id="L440">        return extension.provider() + &quot;:&quot; + extension.name() + &quot;:&quot; + extension.version();</span>
+    }
+
+
+    private static List&lt;ExtensionLoader&gt; extensionLoaders() {
+<span class="fc" id="L445">        List&lt;ExtensionLoader&gt; loaders = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L446">        ServiceLoader.load(ExtensionLoader.class).forEach(loaders::add);</span>
+<span class="fc" id="L447">        return loaders;</span>
+    }
+
+
+    private static Predicate&lt;Extension&gt; identifier(String provider, String name, String version) {
+<span class="nc" id="L452">        return extension -&gt;</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">            extension.provider().equalsIgnoreCase(provider) &amp;&amp;</span>
+<span class="nc bnc" id="L454" title="All 2 branches missed.">            extension.name().equalsIgnoreCase(name) &amp;&amp;</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">            ExtensionVersion.of(extension.version()).isCompatibleWith(ExtensionVersion.of(version))</span>
+        ;
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.2.201808211720</span></div></body></html>

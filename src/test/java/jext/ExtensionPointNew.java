@@ -6,7 +6,7 @@ package jext;
 import jext.ExtensionPoint;
 import jext.LoadStrategy;
 
-@ExtensionPoint(loadStrategy = LoadStrategy.FRESH)
-public interface ExtensionPointFresh {
+@ExtensionPoint(loadStrategy = LoadStrategy.NEW)
+public interface ExtensionPointNew {
 
 }

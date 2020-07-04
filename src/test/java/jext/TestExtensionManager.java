@@ -78,11 +78,11 @@ public class TestExtensionManager {
 
     @Test
     public void testExtensionPointFresh() {
-        ExtensionPointFresh extension1 = extensionManager.getExtension(ExtensionPointFresh.class)
+        ExtensionPointNew extension1 = extensionManager.getExtension(ExtensionPointNew.class)
             .get();
-        ExtensionPointFresh extension2 = extensionManager.getExtension(ExtensionPointFresh.class)
+        ExtensionPointNew extension2 = extensionManager.getExtension(ExtensionPointNew.class)
             .get();
-        ExtensionPointFresh extension3 = extensionManager.getExtension(ExtensionPointFresh.class)
+        ExtensionPointNew extension3 = extensionManager.getExtension(ExtensionPointNew.class)
             .get();
         assertThat(extension1).isNotSameAs(extension2);
         assertThat(extension2).isNotSameAs(extension3);

@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExtensionProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jExt</a> &gt; <a href="index.source.html" class="el_package">jext</a> &gt; <span class="el_source">ExtensionProcessor.java</span></div><h1>ExtensionProcessor.java</h1><pre class="source lang-java linenums">/**
+ * @author Luis Iñesta Gelabert - linesta@iti.es | luiinge@gmail.com
+ */
+package jext;
+
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Filer;
+import javax.annotation.processing.RoundEnvironment;
+import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedSourceVersion;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic.Kind;
+import javax.tools.FileObject;
+import javax.tools.StandardLocation;
+
+/**
+ *    An extension processor that validate and publish the provided extensions
+ */
+@SupportedAnnotationTypes(&quot;jext.Extension&quot;)
+@SupportedSourceVersion(SourceVersion.RELEASE_11)
+<span class="nc" id="L37">public class ExtensionProcessor extends AbstractProcessor {</span>
+
+    @Override
+    public boolean process(Set&lt;? extends TypeElement&gt; annotations, RoundEnvironment roundEnv) {
+<span class="nc" id="L41">        Map&lt;String, List&lt;String&gt;&gt; serviceImplementations = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">        for (Element element : roundEnv.getElementsAnnotatedWith(Extension.class)) {</span>
+<span class="nc" id="L43">            validateAndRegisterExtension(element, serviceImplementations);</span>
+<span class="nc" id="L44">        }</span>
+<span class="nc bnc" id="L45" title="All 2 branches missed.">        for (Element element : roundEnv.getElementsAnnotatedWith(ExtensionPoint.class)) {</span>
+<span class="nc" id="L46">            validateExtensionPoint(element);</span>
+<span class="nc" id="L47">        }</span>
+<span class="nc" id="L48">        writeMetaInfServiceDeclarations(serviceImplementations);</span>
+<span class="nc" id="L49">        return false;</span>
+    }
+
+
+    private void validateExtensionPoint(Element element) {
+<span class="nc bnc" id="L54" title="All 4 branches missed.">        if (element.getKind() != ElementKind.CLASS &amp;&amp; element.getKind() != ElementKind.INTERFACE) {</span>
+<span class="nc" id="L55">            log(</span>
+                Kind.ERROR,
+                element,
+                &quot;@ExtensionPoint not valid for {} (only processed for classes or interfaces)&quot;,
+<span class="nc" id="L59">                element.getSimpleName()</span>
+            );
+        } else {
+<span class="nc" id="L62">            var extensionPointAnnotation = element.getAnnotation(ExtensionPoint.class);</span>
+<span class="nc" id="L63">            validateVersionFormat(extensionPointAnnotation.version(), element, &quot;version&quot;);</span>
+        }
+<span class="nc" id="L65">    }</span>
+
+
+
+    private void validateAndRegisterExtension(
+        Element element,
+        Map&lt;String, List&lt;String&gt;&gt; serviceImplementations
+    ) {
+<span class="nc" id="L73">        boolean hasError = false;</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (element.getKind() != ElementKind.CLASS) {</span>
+<span class="nc" id="L75">            log(</span>
+                Kind.WARNING,
+                element,
+                &quot;@Extension ignored for {} (only processed for classes)&quot;,
+<span class="nc" id="L79">                element.getSimpleName()</span>
+            );
+<span class="nc" id="L81">            return;</span>
+        }
+<span class="nc" id="L83">        var extensionClassElement = (TypeElement) element;</span>
+<span class="nc" id="L84">        var extensionAnnotation = element.getAnnotation(Extension.class);</span>
+
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (extensionAnnotation.externallyManaged() || // not handling externally managed extensions</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">           !validateVersionFormat(extensionAnnotation.version(), element, &quot;version&quot;) ||</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">           !validateVersionFormat(</span>
+<span class="nc" id="L89">                extensionAnnotation.extensionPointVersion(),</span>
+                element,
+                &quot;extensionPointVersion&quot;
+           )
+        ) {
+<span class="nc" id="L94">            return;</span>
+        }
+
+
+<span class="nc" id="L98">        String extensionPoint = extensionAnnotation.extensionPoint();</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (extensionPoint.isEmpty()) {</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            for (TypeMirror implementedInterface : extensionClassElement.getInterfaces()) {</span>
+<span class="nc" id="L101">                extensionPoint = implementedInterface.toString();</span>
+                // remove the &lt;..&gt; part in case it is a generic class
+<span class="nc" id="L103">                extensionPoint = extensionPoint.replaceAll(&quot;\\&lt;[^\\&gt;]*\\&gt;&quot;, &quot;&quot;);</span>
+<span class="nc" id="L104">            }</span>
+        }
+
+<span class="nc" id="L107">        String extension = extensionClassElement.getQualifiedName().toString();</span>
+
+<span class="nc" id="L109">        TypeElement extensionPointClassElement = processingEnv.getElementUtils()</span>
+<span class="nc" id="L110">            .getTypeElement(extensionPoint);</span>
+
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        if (extensionPointClassElement == null) {</span>
+<span class="nc" id="L113">            log(</span>
+                Kind.ERROR,
+                element,
+                &quot;Cannot find extension point class '{}'&quot;,
+                extensionPoint
+            );
+<span class="nc" id="L119">            hasError = true;</span>
+        }
+
+<span class="nc bnc" id="L122" title="All 4 branches missed.">        if (!hasError &amp;&amp; extensionPointClassElement.getAnnotation(ExtensionPoint.class) == null) {</span>
+<span class="nc" id="L123">            log(</span>
+                Kind.ERROR,
+                element,
+                &quot;Expected extension point type '{}' is not annotated with @ExtensionPoint&quot;,
+                extensionPoint
+            );
+<span class="nc" id="L129">            hasError = true;</span>
+        }
+
+<span class="nc bnc" id="L132" title="All 4 branches missed.">        if (!hasError &amp;&amp; !isAssignable(</span>
+<span class="nc" id="L133">                extensionClassElement.asType(),</span>
+<span class="nc" id="L134">                extensionPointClassElement.asType()</span>
+        )) {
+<span class="nc" id="L136">            log(</span>
+                Kind.ERROR,
+                element,
+                &quot;{} must implement or extend the extension point type {}&quot;,
+                extension,
+                extensionPoint
+            );
+<span class="nc" id="L143">            hasError = true;</span>
+        }
+
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (!hasError) {</span>
+<span class="nc" id="L147">            serviceImplementations</span>
+<span class="nc" id="L148">                .computeIfAbsent(extensionPoint, x -&gt; new ArrayList&lt;&gt;())</span>
+<span class="nc" id="L149">                .add(extension);</span>
+        }
+
+<span class="nc" id="L152">    }</span>
+
+
+    private boolean validateVersionFormat(String version, Element element, String fieldName) {
+<span class="nc" id="L156">        boolean valid = version.matches(&quot;\\d+\\.\\d+(\\..*)?&quot;);</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        if (!valid) {</span>
+<span class="nc" id="L158">            log(</span>
+                Kind.ERROR,
+                element,
+                &quot;Content of field {} ('{}') must be in form '&lt;major&gt;.&lt;minor&gt;(.&lt;patch&gt;)'&quot;,
+                fieldName,
+                version
+            );
+        }
+<span class="nc" id="L166">        return valid;</span>
+    }
+
+
+    private boolean isAssignable(TypeMirror type, TypeMirror typeTo) {
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (nameWithoutGeneric(type).equals(nameWithoutGeneric(typeTo))) {</span>
+<span class="nc" id="L172">            return true;</span>
+        }
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        for (TypeMirror superType : processingEnv.getTypeUtils().directSupertypes(type)) {</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">            if (isAssignable(superType, typeTo)) {</span>
+<span class="nc" id="L176">                return true;</span>
+            }
+<span class="nc" id="L178">        }</span>
+<span class="nc" id="L179">        return false;</span>
+    }
+
+
+    private String nameWithoutGeneric(TypeMirror type) {
+<span class="nc" id="L184">        int genericPosition = type.toString().indexOf('&lt;');</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">        return genericPosition &lt; 0 ?</span>
+<span class="nc" id="L186">            type.toString() :</span>
+<span class="nc" id="L187">            type.toString().substring(0, genericPosition);</span>
+    }
+
+
+    private void writeMetaInfServiceDeclarations(Map&lt;String, List&lt;String&gt;&gt; serviceImplementations) {
+<span class="nc" id="L192">        Filer filer = this.processingEnv.getFiler();</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        for (Entry&lt;String, List&lt;String&gt;&gt; mapEntry : serviceImplementations.entrySet()) {</span>
+<span class="nc" id="L194">            String extension = mapEntry.getKey();</span>
+<span class="nc" id="L195">            String resourcePath = &quot;META-INF/services/&quot; + extension;</span>
+            try {
+<span class="nc" id="L197">                writeFile(filer, resourcePath, mapEntry);</span>
+<span class="nc" id="L198">            } catch (IOException e) {</span>
+<span class="nc" id="L199">                log(Kind.ERROR, &quot;UNEXPECTED ERROR: {}&quot;, e.toString());</span>
+<span class="nc" id="L200">            }</span>
+<span class="nc" id="L201">        }</span>
+<span class="nc" id="L202">    }</span>
+
+
+    private void writeFile(
+        Filer filer,
+        String resourcePath,
+        Entry&lt;String, List&lt;String&gt;&gt; entry
+    ) throws IOException {
+<span class="nc" id="L210">        FileObject resourceFile = filer</span>
+<span class="nc" id="L211">            .getResource(StandardLocation.CLASS_OUTPUT, &quot;&quot;, resourcePath);</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">        List&lt;String&gt; oldExtensions = resourceFile.getLastModified() == 0 ? List.of() : readLines(resourceFile);</span>
+<span class="nc" id="L213">        Set&lt;String&gt; allExtensions = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L214">        allExtensions.addAll(oldExtensions);</span>
+<span class="nc" id="L215">        allExtensions.addAll(entry.getValue());</span>
+<span class="nc" id="L216">        resourceFile = filer.createResource(StandardLocation.CLASS_OUTPUT, &quot;&quot;, resourcePath);</span>
+<span class="nc" id="L217">        writeLines(allExtensions, resourceFile);</span>
+        //log(Kind.WARNING, &quot;Generated service declaration file {}&quot;, resourceFile);
+<span class="nc" id="L219">        System.out.println(&quot;[jext] :: Generated service declaration file &quot;+resourceFile.getName());</span>
+<span class="nc" id="L220">    }</span>
+
+
+    private List&lt;String&gt; readLines(FileObject resourceFile) {
+<span class="nc" id="L224">        List&lt;String&gt; lines = new ArrayList&lt;&gt;();</span>
+        try {
+<span class="nc" id="L226">            try (BufferedReader reader = new BufferedReader(resourceFile.openReader(true))) {</span>
+                String line;
+<span class="nc bnc" id="L228" title="All 2 branches missed.">                while ((line = reader.readLine()) != null) {</span>
+<span class="nc" id="L229">                    lines.add(line);</span>
+                }
+            }
+<span class="nc" id="L232">        } catch (IOException e) {</span>
+<span class="nc" id="L233">            log(Kind.ERROR,&quot;Cannot read file {} : {}&quot;, resourceFile.toUri(), e.toString());</span>
+<span class="nc" id="L234">        }</span>
+<span class="nc" id="L235">        return lines;</span>
+    }
+
+
+    private void writeLines(Set&lt;String&gt; lines, FileObject resourceFile) {
+        try {
+<span class="nc" id="L241">            try (BufferedWriter writer = new BufferedWriter(resourceFile.openWriter())) {</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">                for (String line : lines) {</span>
+<span class="nc" id="L243">                    writer.append(line);</span>
+<span class="nc" id="L244">                    writer.newLine();</span>
+<span class="nc" id="L245">                }</span>
+            }
+<span class="nc" id="L247">        } catch (IOException e) {</span>
+<span class="nc" id="L248">            log(Kind.ERROR, &quot;error writing {} : {}&quot;, resourceFile.toUri(), e.toString());</span>
+<span class="nc" id="L249">        }</span>
+<span class="nc" id="L250">    }</span>
+
+
+
+
+    private void log(Kind kind, String message, Object... messageArgs) {
+<span class="nc" id="L256">        processingEnv.getMessager().printMessage(</span>
+            kind,
+<span class="nc" id="L258">            &quot;[jext] :: &quot; + String.format(message.replace(&quot;{}&quot;, &quot;%s&quot;), messageArgs)</span>
+        );
+<span class="nc" id="L260">    }</span>
+
+
+    private void log(Kind kind, Element element, String message, Object... messageArgs) {
+<span class="nc" id="L264">        processingEnv.getMessager().printMessage(</span>
+            kind,
+<span class="nc" id="L266">            &quot;[jext] at &quot; + element.asType().toString() + &quot; :: &quot; + String</span>
+<span class="nc" id="L267">                .format(message.replace(&quot;{}&quot;, &quot;%s&quot;), messageArgs)</span>
+        );
+<span class="nc" id="L269">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.2.201808211720</span></div></body></html>

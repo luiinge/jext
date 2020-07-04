@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoadStrategy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jExt</a> &gt; <a href="index.source.html" class="el_package">jext</a> &gt; <span class="el_source">LoadStrategy.java</span></div><h1>LoadStrategy.java</h1><pre class="source lang-java linenums">/**
+ * @author Luis Iñesta Gelabert - linesta@iti.es | luiinge@gmail.com
+ */
+package jext;
+
+
+/**
+ * The different strategies that can be used each time an extension is
+ * requested using the {@link ExtensionManager}.
+ */
+<span class="fc" id="L11">public enum LoadStrategy {</span>
+
+    /** Keep a single instance */
+<span class="fc" id="L14">    SINGLETON,</span>
+
+    /** Create a new instance each time */
+<span class="fc" id="L17">    NEW,</span>
+
+    /** The behaviour is decided by the underline implementation */
+<span class="fc" id="L20">    UNDEFINED</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.2.201808211720</span></div></body></html>

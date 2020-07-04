@@ -29,8 +29,10 @@ import javax.tools.Diagnostic.Kind;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
-
-@SupportedAnnotationTypes("iti.commons.jext.Extension")
+/**
+ *    An extension processor that validate and publish the provided extensions
+ */
+@SupportedAnnotationTypes("jext.Extension")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class ExtensionProcessor extends AbstractProcessor {
 
@@ -43,7 +45,7 @@ public class ExtensionProcessor extends AbstractProcessor {
         for (Element element : roundEnv.getElementsAnnotatedWith(ExtensionPoint.class)) {
             validateExtensionPoint(element);
         }
-        writeOutputFiles(serviceImplementations);
+        writeMetaInfServiceDeclarations(serviceImplementations);
         return false;
     }
 
@@ -127,11 +129,10 @@ public class ExtensionProcessor extends AbstractProcessor {
             hasError = true;
         }
 
-        if (!hasError &&
-                        !isAssignable(
-                            extensionClassElement.asType(),
-                            extensionPointClassElement.asType()
-                        )) {
+        if (!hasError && !isAssignable(
+                extensionClassElement.asType(),
+                extensionPointClassElement.asType()
+        )) {
             log(
                 Kind.ERROR,
                 element,
@@ -152,12 +153,12 @@ public class ExtensionProcessor extends AbstractProcessor {
 
 
     private boolean validateVersionFormat(String version, Element element, String fieldName) {
-        boolean valid = version.matches("\\d+\\.\\d+");
+        boolean valid = version.matches("\\d+\\.\\d+(\\..*)?");
         if (!valid) {
             log(
                 Kind.ERROR,
                 element,
-                "Content of field {} ('{}') must be in form '<major>.<minor>'",
+                "Content of field {} ('{}') must be in form '<major>.<minor>(.<patch>)'",
                 fieldName,
                 version
             );
@@ -181,12 +182,13 @@ public class ExtensionProcessor extends AbstractProcessor {
 
     private String nameWithoutGeneric(TypeMirror type) {
         int genericPosition = type.toString().indexOf('<');
-        return genericPosition < 0 ? type.toString()
-                        : type.toString().substring(0, genericPosition);
+        return genericPosition < 0 ?
+            type.toString() :
+            type.toString().substring(0, genericPosition);
     }
 
 
-    private void writeOutputFiles(Map<String, List<String>> serviceImplementations) {
+    private void writeMetaInfServiceDeclarations(Map<String, List<String>> serviceImplementations) {
         Filer filer = this.processingEnv.getFiler();
         for (Entry<String, List<String>> mapEntry : serviceImplementations.entrySet()) {
             String extension = mapEntry.getKey();
@@ -194,7 +196,7 @@ public class ExtensionProcessor extends AbstractProcessor {
             try {
                 writeFile(filer, resourcePath, mapEntry);
             } catch (IOException e) {
-                log(Kind.ERROR, "UNEXPECTED ERROR: {}", e.getMessage());
+                log(Kind.ERROR, "UNEXPECTED ERROR: {}", e.toString());
             }
         }
     }
@@ -207,19 +209,19 @@ public class ExtensionProcessor extends AbstractProcessor {
     ) throws IOException {
         FileObject resourceFile = filer
             .getResource(StandardLocation.CLASS_OUTPUT, "", resourcePath);
-        Set<String> oldExtensions = read(resourceFile);
+        List<String> oldExtensions = resourceFile.getLastModified() == 0 ? List.of() : readLines(resourceFile);
         Set<String> allExtensions = new LinkedHashSet<>();
         allExtensions.addAll(oldExtensions);
         allExtensions.addAll(entry.getValue());
         resourceFile = filer.createResource(StandardLocation.CLASS_OUTPUT, "", resourcePath);
-        write(allExtensions, resourceFile);
+        writeLines(allExtensions, resourceFile);
         //log(Kind.WARNING, "Generated service declaration file {}", resourceFile);
         System.out.println("[jext] :: Generated service declaration file "+resourceFile.getName());
     }
 
 
-    private Set<String> read(FileObject resourceFile) {
-        Set<String> lines = new LinkedHashSet<>();
+    private List<String> readLines(FileObject resourceFile) {
+        List<String> lines = new ArrayList<>();
         try {
             try (BufferedReader reader = new BufferedReader(resourceFile.openReader(true))) {
                 String line;
@@ -228,13 +230,13 @@ public class ExtensionProcessor extends AbstractProcessor {
                 }
             }
         } catch (IOException e) {
-            //
+            log(Kind.ERROR,"Cannot read file {} : {}", resourceFile.toUri(), e.toString());
         }
         return lines;
     }
 
 
-    private void write(Set<String> lines, FileObject resourceFile) {
+    private void writeLines(Set<String> lines, FileObject resourceFile) {
         try {
             try (BufferedWriter writer = new BufferedWriter(resourceFile.openWriter())) {
                 for (String line : lines) {
@@ -243,9 +245,11 @@ public class ExtensionProcessor extends AbstractProcessor {
                 }
             }
         } catch (IOException e) {
-            log(Kind.ERROR, "error writing {} : {}", resourceFile.toUri(), e.getMessage());
+            log(Kind.ERROR, "error writing {} : {}", resourceFile.toUri(), e.toString());
         }
     }
+
+
 
 
     private void log(Kind kind, String message, Object... messageArgs) {

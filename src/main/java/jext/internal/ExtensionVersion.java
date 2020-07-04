@@ -3,22 +3,27 @@
  */
 package jext.internal;
 
+import java.util.NoSuchElementException;
+import java.util.stream.Stream;
 
 public class ExtensionVersion {
 
+    public static ExtensionVersion of(String version) {
+        return new ExtensionVersion(version);
+    }
+
     private final int major;
     private final int minor;
+    private final String patch;
 
 
-    public ExtensionVersion(String version) {
-        String[] str = version.split("\\.");
-        if (str.length != 2) {
-            throw new IllegalArgumentException("Not valid version number " + version);
-        }
+    private ExtensionVersion(String version) {
+        var parts = Stream.of(version.split("\\.")).iterator();
         try {
-            this.major = Integer.parseInt(str[0]);
-            this.minor = Integer.parseInt(str[1]);
-        } catch (NumberFormatException e) {
+            this.major = Integer.parseInt(parts.next());
+            this.minor = parts.hasNext() ? Integer.parseInt(parts.next()) : 0;
+            this.patch = parts.hasNext() ? parts.next() : "";
+        } catch (NoSuchElementException | NumberFormatException e) {
             throw new IllegalArgumentException(
                 "Not valid version number " + version + " (" + e.getMessage() + ")"
             );
@@ -35,6 +40,10 @@ public class ExtensionVersion {
         return minor;
     }
 
+
+    public String patch() {
+        return patch;
+    }
 
     public boolean isCompatibleWith(ExtensionVersion otherVersion) {
         return (major == otherVersion.major && minor >= otherVersion.minor);

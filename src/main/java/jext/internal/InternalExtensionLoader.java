@@ -26,7 +26,7 @@ public class InternalExtensionLoader implements ExtensionLoader {
             InternalExtensionLoader.class.getModule().addUses(type);
             return ServiceLoader.load(type, loader);
         } catch (ServiceConfigurationError e) {
-            LOGGER.debug(e.toString());
+            LOGGER.error("Error loading extension of type {}",type,e);
             return List.of();
         }
     }

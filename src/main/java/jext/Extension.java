@@ -11,7 +11,13 @@ import java.lang.annotation.Target;
 import java.util.ServiceLoader;
 
 
-/** This annotation allows to mark a class as an extension managed by the * {@link ExtensionManager}. * <p> * Notice that any class not annotated with {@link Extension} will not be * managed in spite of implementing or extending the {@link ExtensionPoint} * class. * </p> *
+/**
+ * This annotation allows to mark a class as an extension managed by the
+ * {@link ExtensionManager}.
+ * <p>
+ * Notice that any class not annotated with {@link Extension} will not be
+ * managed in spite of implementing or extending the {@link ExtensionPoint}
+ * class.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
@@ -21,7 +27,7 @@ public @interface Extension {
 
 
     /** The provider (organization, package, group, etc.) of the extension */
-    String provider() default "none";
+    String provider();
 
 
     /** The name of the extension */
@@ -30,9 +36,9 @@ public @interface Extension {
 
     /**
      * The version of the extension in form of
-     * {@code <majorVersion>.<minorVersion>}
+     * {@code <majorVersion>.<minorVersion>.<patch>}
      */
-    String version() default "1.0";
+    String version();
 
 
     /**
@@ -76,6 +82,10 @@ public @interface Extension {
     int priority() default NORMAL_PRORITY;
 
 
+    /**
+     * Defines whether or not this extension can be overridden by other extension that
+     * extends the implementation.
+     */
     boolean overridable() default true;
 
 
