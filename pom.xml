@@ -5,13 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>maven-java-starter</groupId>
-        <artifactId>maven-java11-starter</artifactId>
-        <version>1.0.0</version>
+        <groupId>io.github.luiinge</groupId>
+        <artifactId>maven-java-starter</artifactId>
+        <version>11.0.0</version>
     </parent>
 
 
-    <groupId>jext</groupId>
+    <groupId>io.github.luiinge</groupId>
     <artifactId>jext</artifactId>
     <version>1.0.0</version>
 
@@ -21,17 +21,32 @@
     <inceptionYear>2020</inceptionYear>
 
 
-    <licenses>
-        <license>
-            <name>MIT License</name>
-            <url>http://repository.jboss.org/licenses/mit.txt</url>
-        </license>
-    </licenses>
+    <url>https://github.com/luiinge/jext</url>
+
+    <organization>
+        <name>luiinge</name>
+        <url>https://github.com/luiinge</url>
+    </organization>
+
+    <developers>
+        <developer>
+            <name>Luis Iñesta Gelabert</name>
+            <email>luiinge@gmail.com</email>
+        </developer>
+    </developers>
 
     <issueManagement>
         <system>Github</system>
         <url>https://github.com/luiinge/jext/issues</url>
     </issueManagement>
+
+    <scm>
+        <connection>scm:git:git://github.com/luiinge/jext.git</connection>
+        <developerConnection>scm:git:ssh://github.com:luiinge/jext.git</developerConnection>
+        <url>https://github.com/luiinge/jext/tree/master</url>
+    </scm>
+
+
 
 
     <properties>

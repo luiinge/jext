@@ -235,9 +235,11 @@ public class ExtensionManager {
         switch (context.extensionPointData().loadStrategy()) {
         case SINGLETON:
             instance = singleton(extension);
+            LOGGER.trace("Using singleton instance of extension {}", extension.getClass());
             break;
         case NEW:
             instance = newInstance(extension);
+            LOGGER.trace("Created new instance of extension {}", extension.getClass());
             break;
         default:
             instance = extension;

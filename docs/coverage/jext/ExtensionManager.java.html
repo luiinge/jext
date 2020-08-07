@@ -235,50 +235,52 @@ public class ExtensionManager {
 <span class="fc bfc" id="L235" title="All 3 branches covered.">        switch (context.extensionPointData().loadStrategy()) {</span>
         case SINGLETON:
 <span class="fc" id="L237">            instance = singleton(extension);</span>
-<span class="fc" id="L238">            break;</span>
+<span class="fc" id="L238">            LOGGER.trace(&quot;Using singleton instance of extension {}&quot;, extension.getClass());</span>
+<span class="fc" id="L239">            break;</span>
         case NEW:
-<span class="fc" id="L240">            instance = newInstance(extension);</span>
-<span class="fc" id="L241">            break;</span>
+<span class="fc" id="L241">            instance = newInstance(extension);</span>
+<span class="fc" id="L242">            LOGGER.trace(&quot;Created new instance of extension {}&quot;, extension.getClass());</span>
+<span class="fc" id="L243">            break;</span>
         default:
-<span class="fc" id="L243">            instance = extension;</span>
+<span class="fc" id="L245">            instance = extension;</span>
         }
-<span class="fc" id="L245">        return instance;</span>
+<span class="fc" id="L247">        return instance;</span>
     }
 
 
     @SuppressWarnings(&quot;unchecked&quot;)
     protected &lt;T&gt; List&lt;T&gt; obtainCachedValidExtensions(ExtensionLoadContext&lt;T&gt; context) {
-<span class="fc" id="L251">        List&lt;Object&gt; cache = cachedValidExtensionInstances.get(context.extensionPoint());</span>
-<span class="fc bfc" id="L252" title="All 2 branches covered.">        if (cache != null) {</span>
-<span class="fc" id="L253">            LOGGER.trace(&quot;{} :: Retrieved from cache [{}]&quot;, context, cache);</span>
-<span class="fc" id="L254">            return (List&lt;T&gt;) cache;</span>
+<span class="fc" id="L253">        List&lt;Object&gt; cache = cachedValidExtensionInstances.get(context.extensionPoint());</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">        if (cache != null) {</span>
+<span class="fc" id="L255">            LOGGER.trace(&quot;{} :: Retrieved from cache [{}]&quot;, context, cache);</span>
+<span class="fc" id="L256">            return (List&lt;T&gt;) cache;</span>
         }
-<span class="fc" id="L256">        List&lt;T&gt; extensions = obtainValidExtensions(context);</span>
-<span class="fc" id="L257">        cachedValidExtensionInstances.put(context.extensionPoint(), (List&lt;Object&gt;) extensions);</span>
-<span class="fc" id="L258">        return extensions;</span>
+<span class="fc" id="L258">        List&lt;T&gt; extensions = obtainValidExtensions(context);</span>
+<span class="fc" id="L259">        cachedValidExtensionInstances.put(context.extensionPoint(), (List&lt;Object&gt;) extensions);</span>
+<span class="fc" id="L260">        return extensions;</span>
     }
 
 
     protected &lt;T&gt; List&lt;T&gt; obtainValidExtensions(ExtensionLoadContext&lt;T&gt; context) {
 
-<span class="fc" id="L264">        this.validExtensions.putIfAbsent(context.extensionPoint(), new HashSet&lt;&gt;());</span>
-<span class="fc" id="L265">        this.invalidExtensions.putIfAbsent(context.extensionPoint(), new HashSet&lt;&gt;());</span>
+<span class="fc" id="L266">        this.validExtensions.putIfAbsent(context.extensionPoint(), new HashSet&lt;&gt;());</span>
+<span class="fc" id="L267">        this.invalidExtensions.putIfAbsent(context.extensionPoint(), new HashSet&lt;&gt;());</span>
 
-<span class="fc" id="L267">        List&lt;T&gt; collectedExtensions = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L268" title="All 2 branches covered.">        for (ClassLoader classLoader : classLoaders) {</span>
-<span class="fc" id="L269">            collectValidExtensions(</span>
-<span class="fc" id="L270">                context.withInternalLoader(classLoader, builtInExtensionLoader),</span>
+<span class="fc" id="L269">        List&lt;T&gt; collectedExtensions = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">        for (ClassLoader classLoader : classLoaders) {</span>
+<span class="fc" id="L271">            collectValidExtensions(</span>
+<span class="fc" id="L272">                context.withInternalLoader(classLoader, builtInExtensionLoader),</span>
                 collectedExtensions
             );
-<span class="pc bpc" id="L273" title="1 of 2 branches missed.">            for (ExtensionLoader extensionLoader : extensionLoaders) {</span>
-<span class="nc" id="L274">                collectValidExtensions(</span>
-<span class="nc" id="L275">                    context.withExternalLoader(classLoader, extensionLoader),</span>
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">            for (ExtensionLoader extensionLoader : extensionLoaders) {</span>
+<span class="nc" id="L276">                collectValidExtensions(</span>
+<span class="nc" id="L277">                    context.withExternalLoader(classLoader, extensionLoader),</span>
                     collectedExtensions
                 );
-<span class="nc" id="L278">            }</span>
+<span class="nc" id="L280">            }</span>
         }
-<span class="fc" id="L280">        filterOverridenExtensions(collectedExtensions);</span>
-<span class="fc" id="L281">        return collectedExtensions;</span>
+<span class="fc" id="L282">        filterOverridenExtensions(collectedExtensions);</span>
+<span class="fc" id="L283">        return collectedExtensions;</span>
     }
 
 
@@ -286,110 +288,110 @@ public class ExtensionManager {
         ExtensionLoadContext&lt;T&gt; context,
         List&lt;T&gt; collectedExtensions
     ) {
-<span class="fc" id="L289">        Class&lt;T&gt; extensionPoint = context.extensionPoint();</span>
-<span class="fc" id="L290">        LOGGER.trace(&quot;{} :: Searching...&quot;, context);</span>
-<span class="fc bfc" id="L291" title="All 2 branches covered.">        for (T extension : context.load()) {</span>
-<span class="pc bpc" id="L292" title="1 of 2 branches missed.">            if (hasBeenInvalidated(extensionPoint, extension)) {</span>
-<span class="nc" id="L293">                LOGGER.trace(</span>
+<span class="fc" id="L291">        Class&lt;T&gt; extensionPoint = context.extensionPoint();</span>
+<span class="fc" id="L292">        LOGGER.trace(&quot;{} :: Searching...&quot;, context);</span>
+<span class="fc bfc" id="L293" title="All 2 branches covered.">        for (T extension : context.load()) {</span>
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">            if (hasBeenInvalidated(extensionPoint, extension)) {</span>
+<span class="nc" id="L295">                LOGGER.trace(</span>
                     &quot;{} :: Found {} but ignored (it is marked as invalid)&quot;,
                     context,
                     extension
                 );
-<span class="nc" id="L298">                break;</span>
+<span class="nc" id="L300">                break;</span>
             }
-<span class="pc bpc" id="L300" title="1 of 2 branches missed.">            if (!hasBeenValidated(extensionPoint, extension)) {</span>
-<span class="fc" id="L301">                boolean valid = validateExtension(context, extension);</span>
-<span class="fc bfc" id="L302" title="All 2 branches covered.">                if (valid) {</span>
-<span class="fc" id="L303">                    LOGGER.trace(&quot;{} :: Found {}&quot;, context, extension);</span>
-<span class="fc" id="L304">                    collectedExtensions.add(extension);</span>
+<span class="pc bpc" id="L302" title="1 of 2 branches missed.">            if (!hasBeenValidated(extensionPoint, extension)) {</span>
+<span class="fc" id="L303">                boolean valid = validateExtension(context, extension);</span>
+<span class="fc bfc" id="L304" title="All 2 branches covered.">                if (valid) {</span>
+<span class="fc" id="L305">                    LOGGER.trace(&quot;{} :: Found {}&quot;, context, extension);</span>
+<span class="fc" id="L306">                    collectedExtensions.add(extension);</span>
                 } else {
-<span class="fc" id="L306">                    LOGGER.trace(</span>
+<span class="fc" id="L308">                    LOGGER.trace(</span>
                         &quot;{} :: Found {} but ignored (marked as invalid)&quot;,
                         context,
                         extension
                     );
                 }
             }
-<span class="fc" id="L313">        }</span>
-<span class="fc" id="L314">    }</span>
+<span class="fc" id="L315">        }</span>
+<span class="fc" id="L316">    }</span>
 
 
     protected &lt;T&gt; boolean validateExtension(ExtensionLoadContext&lt;T&gt; context, T extension) {
-<span class="fc" id="L318">        Class&lt;T&gt; extensionPoint = context.extensionPoint();</span>
-<span class="fc" id="L319">        ExtensionPoint extensionPointData = context.extensionPointData();</span>
-<span class="fc" id="L320">        Extension extensionData = getExtensionMetadata(extension);</span>
+<span class="fc" id="L320">        Class&lt;T&gt; extensionPoint = context.extensionPoint();</span>
+<span class="fc" id="L321">        ExtensionPoint extensionPointData = context.extensionPointData();</span>
+<span class="fc" id="L322">        Extension extensionData = getExtensionMetadata(extension);</span>
 
-<span class="pc bpc" id="L322" title="1 of 2 branches missed.">        if (extensionData == null) {</span>
-<span class="nc" id="L323">            LOGGER.warn(</span>
+<span class="pc bpc" id="L324" title="1 of 2 branches missed.">        if (extensionData == null) {</span>
+<span class="nc" id="L325">            LOGGER.warn(</span>
                 &quot;Class {} is not annotated with @Extension and will be ignored&quot;,
-<span class="nc" id="L325">                extension.getClass()</span>
+<span class="nc" id="L327">                extension.getClass()</span>
             );
-<span class="nc" id="L327">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
-<span class="nc" id="L328">            return false;</span>
+<span class="nc" id="L329">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
+<span class="nc" id="L330">            return false;</span>
         }
 
-<span class="pc bpc" id="L331" title="1 of 2 branches missed.">        if (extensionData.externallyManaged() != context.isExternallyManaged()) {</span>
-<span class="nc" id="L332">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
-<span class="nc" id="L333">            return false;</span>
+<span class="pc bpc" id="L333" title="1 of 2 branches missed.">        if (extensionData.externallyManaged() != context.isExternallyManaged()) {</span>
+<span class="nc" id="L334">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
+<span class="nc" id="L335">            return false;</span>
         }
 
-<span class="fc bfc" id="L336" title="All 2 branches covered.">        if (!areCompatible(extensionPointData, extensionData)) {</span>
-<span class="fc" id="L337">            LOGGER.warn(</span>
+<span class="fc bfc" id="L338" title="All 2 branches covered.">        if (!areCompatible(extensionPointData, extensionData)) {</span>
+<span class="fc" id="L339">            LOGGER.warn(</span>
                 &quot;Extension point version of {} ({}) is not compatible with expected version {}&quot;,
-<span class="fc" id="L339">                id(extensionData),</span>
-<span class="fc" id="L340">                extensionData.extensionPointVersion(),</span>
-<span class="fc" id="L341">                extensionPointData.version()</span>
+<span class="fc" id="L341">                id(extensionData),</span>
+<span class="fc" id="L342">                extensionData.extensionPointVersion(),</span>
+<span class="fc" id="L343">                extensionPointData.version()</span>
             );
-<span class="fc" id="L343">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
-<span class="fc" id="L344">            return false;</span>
+<span class="fc" id="L345">            this.invalidExtensions.get(extensionPoint).add(extension.getClass());</span>
+<span class="fc" id="L346">            return false;</span>
         }
 
-<span class="fc" id="L347">        this.validExtensions.get(extensionPoint).add(extension.getClass());</span>
-<span class="fc" id="L348">        return true;</span>
+<span class="fc" id="L349">        this.validExtensions.get(extensionPoint).add(extension.getClass());</span>
+<span class="fc" id="L350">        return true;</span>
     }
 
 
     private &lt;T&gt; void filterOverridenExtensions(List&lt;T&gt; extensions) {
 
-<span class="fc" id="L354">        List&lt;T&gt; overridableExtensions = extensions.stream()</span>
-<span class="fc" id="L355">            .filter(extension -&gt; getExtensionMetadata(extension).overridable())</span>
-<span class="fc" id="L356">            .collect(Collectors.toList());</span>
+<span class="fc" id="L356">        List&lt;T&gt; overridableExtensions = extensions.stream()</span>
+<span class="fc" id="L357">            .filter(extension -&gt; getExtensionMetadata(extension).overridable())</span>
+<span class="fc" id="L358">            .collect(Collectors.toList());</span>
 
-<span class="fc" id="L358">        Map&lt;String, T&gt; overridableExtensionClassNames = overridableExtensions.stream()</span>
-<span class="fc" id="L359">            .collect(</span>
-<span class="fc" id="L360">                Collectors.toMap(</span>
-<span class="fc" id="L361">                    extension -&gt; extension.getClass().getCanonicalName(),</span>
-<span class="fc" id="L362">                    Function.identity()</span>
+<span class="fc" id="L360">        Map&lt;String, T&gt; overridableExtensionClassNames = overridableExtensions.stream()</span>
+<span class="fc" id="L361">            .collect(</span>
+<span class="fc" id="L362">                Collectors.toMap(</span>
+<span class="fc" id="L363">                    extension -&gt; extension.getClass().getCanonicalName(),</span>
+<span class="fc" id="L364">                    Function.identity()</span>
                 )
             );
 
-<span class="fc bfc" id="L366" title="All 2 branches covered.">        for (T extension : new ArrayList&lt;&gt;(extensions)) {</span>
-<span class="fc" id="L367">            Extension metadata = getExtensionMetadata(extension);</span>
-<span class="fc" id="L368">            T overridable = overridableExtensionClassNames.get(metadata.overrides());</span>
-<span class="pc bpc" id="L369" title="1 of 2 branches missed.">            if (overridable != null) {</span>
-<span class="nc" id="L370">                extensions.remove(overridable);</span>
-<span class="nc bnc" id="L371" title="All 2 branches missed.">                if (LOGGER.isInfoEnabled()) {</span>
-<span class="nc" id="L372">                    LOGGER.info(</span>
+<span class="fc bfc" id="L368" title="All 2 branches covered.">        for (T extension : new ArrayList&lt;&gt;(extensions)) {</span>
+<span class="fc" id="L369">            Extension metadata = getExtensionMetadata(extension);</span>
+<span class="fc" id="L370">            T overridable = overridableExtensionClassNames.get(metadata.overrides());</span>
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">            if (overridable != null) {</span>
+<span class="nc" id="L372">                extensions.remove(overridable);</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">                if (LOGGER.isInfoEnabled()) {</span>
+<span class="nc" id="L374">                    LOGGER.info(</span>
                         &quot;Extension {} overrides extension {}&quot;,
-<span class="nc" id="L374">                        id(getExtensionMetadata(extension)),</span>
-<span class="nc" id="L375">                        id(getExtensionMetadata(overridable))</span>
+<span class="nc" id="L376">                        id(getExtensionMetadata(extension)),</span>
+<span class="nc" id="L377">                        id(getExtensionMetadata(overridable))</span>
                     );
                 }
             }
-<span class="fc" id="L379">        }</span>
-<span class="fc" id="L380">    }</span>
+<span class="fc" id="L381">        }</span>
+<span class="fc" id="L382">    }</span>
 
 
     private boolean areCompatible(ExtensionPoint extensionPointData, Extension extensionData) {
-<span class="fc" id="L384">        ExtensionVersion extensionPointVersion = ExtensionVersion.of(extensionPointData.version());</span>
+<span class="fc" id="L386">        ExtensionVersion extensionPointVersion = ExtensionVersion.of(extensionPointData.version());</span>
         try {
-<span class="fc" id="L386">            ExtensionVersion extensionDataPointVersion = ExtensionVersion.of(</span>
-<span class="fc" id="L387">                extensionData.extensionPointVersion()</span>
+<span class="fc" id="L388">            ExtensionVersion extensionDataPointVersion = ExtensionVersion.of(</span>
+<span class="fc" id="L389">                extensionData.extensionPointVersion()</span>
             );
-<span class="fc" id="L389">            return extensionDataPointVersion.isCompatibleWith(extensionPointVersion);</span>
-<span class="nc" id="L390">        } catch (IllegalArgumentException e) {</span>
-<span class="nc" id="L391">            LOGGER.error(&quot;Bad extensionPointVersion in {}&quot;, id(extensionData));</span>
-<span class="nc" id="L392">            throw e;</span>
+<span class="fc" id="L391">            return extensionDataPointVersion.isCompatibleWith(extensionPointVersion);</span>
+<span class="nc" id="L392">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L393">            LOGGER.error(&quot;Bad extensionPointVersion in {}&quot;, id(extensionData));</span>
+<span class="nc" id="L394">            throw e;</span>
         }
     }
 
@@ -397,62 +399,62 @@ public class ExtensionManager {
     @SuppressWarnings(&quot;unchecked&quot;)
     private &lt;T&gt; T newInstance(T extension) {
         try {
-<span class="fc" id="L400">            return (T) extension.getClass().getConstructor().newInstance();</span>
-<span class="nc" id="L401">        } catch (ReflectiveOperationException e) {</span>
-<span class="nc" id="L402">            LOGGER.error(</span>
+<span class="fc" id="L402">            return (T) extension.getClass().getConstructor().newInstance();</span>
+<span class="nc" id="L403">        } catch (ReflectiveOperationException e) {</span>
+<span class="nc" id="L404">            LOGGER.error(</span>
                 &quot;Error loading new instance of {} : {}&quot;,
-<span class="nc" id="L404">                extension.getClass(),</span>
-<span class="nc" id="L405">                e.getMessage(),</span>
+<span class="nc" id="L406">                extension.getClass(),</span>
+<span class="nc" id="L407">                e.getMessage(),</span>
                 e
             );
-<span class="nc" id="L408">            return null;</span>
+<span class="nc" id="L410">            return null;</span>
         }
     }
 
 
     private int getExtensionPriority(Object extension) {
-<span class="fc" id="L414">        return getExtensionMetadata(extension).priority();</span>
+<span class="fc" id="L416">        return getExtensionMetadata(extension).priority();</span>
     }
 
 
     @SuppressWarnings(&quot;unchecked&quot;)
     private &lt;T&gt; T singleton(T extension) {
-<span class="fc" id="L420">        return (T) singletons.computeIfAbsent(extension.getClass(), x -&gt; extension);</span>
+<span class="fc" id="L422">        return (T) singletons.computeIfAbsent(extension.getClass(), x -&gt; extension);</span>
     }
 
 
     protected &lt;T&gt; boolean hasBeenValidated(Class&lt;T&gt; extensionPoint, T extension) {
-<span class="fc" id="L425">        return validExtensions.get(extensionPoint).contains(extension.getClass());</span>
+<span class="fc" id="L427">        return validExtensions.get(extensionPoint).contains(extension.getClass());</span>
     }
 
 
     protected &lt;T&gt; boolean hasBeenInvalidated(Class&lt;T&gt; extensionPoint, T extension) {
-<span class="fc" id="L430">        return invalidExtensions.get(extensionPoint).contains(extension.getClass());</span>
+<span class="fc" id="L432">        return invalidExtensions.get(extensionPoint).contains(extension.getClass());</span>
     }
 
 
     protected Comparator&lt;Object&gt; sortByPriority() {
-<span class="fc" id="L435">        return Comparator.comparingInt(this::getExtensionPriority);</span>
+<span class="fc" id="L437">        return Comparator.comparingInt(this::getExtensionPriority);</span>
     }
 
 
     private static String id(Extension extension) {
-<span class="fc" id="L440">        return extension.provider() + &quot;:&quot; + extension.name() + &quot;:&quot; + extension.version();</span>
+<span class="fc" id="L442">        return extension.provider() + &quot;:&quot; + extension.name() + &quot;:&quot; + extension.version();</span>
     }
 
 
     private static List&lt;ExtensionLoader&gt; extensionLoaders() {
-<span class="fc" id="L445">        List&lt;ExtensionLoader&gt; loaders = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L446">        ServiceLoader.load(ExtensionLoader.class).forEach(loaders::add);</span>
-<span class="fc" id="L447">        return loaders;</span>
+<span class="fc" id="L447">        List&lt;ExtensionLoader&gt; loaders = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L448">        ServiceLoader.load(ExtensionLoader.class).forEach(loaders::add);</span>
+<span class="fc" id="L449">        return loaders;</span>
     }
 
 
     private static Predicate&lt;Extension&gt; identifier(String provider, String name, String version) {
-<span class="nc" id="L452">        return extension -&gt;</span>
-<span class="nc bnc" id="L453" title="All 2 branches missed.">            extension.provider().equalsIgnoreCase(provider) &amp;&amp;</span>
-<span class="nc bnc" id="L454" title="All 2 branches missed.">            extension.name().equalsIgnoreCase(name) &amp;&amp;</span>
-<span class="nc bnc" id="L455" title="All 2 branches missed.">            ExtensionVersion.of(extension.version()).isCompatibleWith(ExtensionVersion.of(version))</span>
+<span class="nc" id="L454">        return extension -&gt;</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">            extension.provider().equalsIgnoreCase(provider) &amp;&amp;</span>
+<span class="nc bnc" id="L456" title="All 2 branches missed.">            extension.name().equalsIgnoreCase(name) &amp;&amp;</span>
+<span class="nc bnc" id="L457" title="All 2 branches missed.">            ExtensionVersion.of(extension.version()).isCompatibleWith(ExtensionVersion.of(version))</span>
         ;
     }
 

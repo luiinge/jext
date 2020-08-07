@@ -7,13 +7,9 @@ package jext;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.NoSuchFileException;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -23,6 +19,7 @@ import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic.Kind;
@@ -39,62 +36,148 @@ public class ExtensionProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         Map<String, List<String>> serviceImplementations = new LinkedHashMap<>();
-        for (Element element : roundEnv.getElementsAnnotatedWith(Extension.class)) {
-            validateAndRegisterExtension(element, serviceImplementations);
+        for (Element extensionElement : roundEnv.getElementsAnnotatedWith(Extension.class)) {
+            if (validateElementKindIsClass(extensionElement)) {
+                validateAndRegisterExtension((TypeElement) extensionElement, serviceImplementations);
+            }
         }
-        for (Element element : roundEnv.getElementsAnnotatedWith(ExtensionPoint.class)) {
-            validateExtensionPoint(element);
+        for (Element extensionPointElement : roundEnv.getElementsAnnotatedWith(ExtensionPoint.class)) {
+            validateExtensionPoint(extensionPointElement);
         }
         writeMetaInfServiceDeclarations(serviceImplementations);
         return false;
     }
 
 
-    private void validateExtensionPoint(Element element) {
-        if (element.getKind() != ElementKind.CLASS && element.getKind() != ElementKind.INTERFACE) {
+
+    private void validateExtensionPoint(Element extensionPointElement) {
+        if (extensionPointElement.getKind() != ElementKind.CLASS && extensionPointElement.getKind() != ElementKind.INTERFACE) {
             log(
                 Kind.ERROR,
-                element,
+                extensionPointElement,
                 "@ExtensionPoint not valid for {} (only processed for classes or interfaces)",
-                element.getSimpleName()
+                extensionPointElement.getSimpleName()
             );
         } else {
-            var extensionPointAnnotation = element.getAnnotation(ExtensionPoint.class);
-            validateVersionFormat(extensionPointAnnotation.version(), element, "version");
+            var extensionPointAnnotation = extensionPointElement.getAnnotation(ExtensionPoint.class);
+            validateVersionFormat(extensionPointAnnotation.version(), extensionPointElement, "version");
         }
     }
 
 
-
     private void validateAndRegisterExtension(
-        Element element,
+        TypeElement extensionElement,
         Map<String, List<String>> serviceImplementations
     ) {
-        boolean hasError = false;
-        if (element.getKind() != ElementKind.CLASS) {
+
+        boolean ignore;
+        var extensionAnnotation = extensionElement.getAnnotation(Extension.class);
+
+        // not handling externally managed extensions
+        ignore = extensionAnnotation.externallyManaged();
+        ignore = ignore || !validateVersionFormat(extensionAnnotation.version(), extensionElement, "version");
+        ignore = ignore || !validateVersionFormat(
+            extensionAnnotation.extensionPointVersion(),
+            extensionElement,
+            "extensionPointVersion"
+        );
+
+        if (ignore) {
+            return;
+        }
+
+        String extensionPointName = computeExtensionPointName(extensionElement, extensionAnnotation);
+        String extensionName = extensionElement.getQualifiedName().toString();
+        TypeElement extensionPointElement = processingEnv.getElementUtils().getTypeElement(extensionPointName);
+        ExtensionInfo extensionInfo = new ExtensionInfo(
+            extensionElement,
+            extensionName,
+            extensionPointElement,
+            extensionPointName
+        );
+
+        ignore = !validateExtensionPointClassExists(extensionInfo);
+        ignore = ignore || !validateExtensionPointAnnotation(extensionInfo);
+        ignore = ignore || !validateExtensionPointAssignableFromExtension(extensionInfo);
+        ignore = ignore || validateExtensionDeclaredInModuleInfo(extensionInfo);
+
+        if (!ignore) {
+            serviceImplementations
+                .computeIfAbsent(extensionPointName, x -> new ArrayList<>())
+                .add(extensionName);
+        }
+
+    }
+
+
+    private boolean validateExtensionDeclaredInModuleInfo(ExtensionInfo extensionInfo) {
+        var module = this.processingEnv.getElementUtils().getModuleOf(extensionInfo.extensionElement);
+        if (module.isUnnamed()) {
+            return true;
+        }
+        boolean declaredInModule = module.getDirectives().stream()
+            .filter(directive -> directive.getKind() == ModuleElement.DirectiveKind.PROVIDES)
+            .map(ModuleElement.ProvidesDirective.class::cast)
+            .filter(provides -> provides.getService().equals(extensionInfo.extensionPointElement.asType()))
+            .flatMap(provides -> provides.getImplementations().stream())
+            .anyMatch(extensionInfo.extensionElement::equals);
+        if (!declaredInModule) {
             log(
-                Kind.WARNING,
-                element,
-                "@Extension ignored for {} (only processed for classes)",
-                element.getSimpleName()
+                Kind.MANDATORY_WARNING,
+                extensionInfo.extensionElement,
+                "{} must be declared with the directive 'provides' in module-info.java in order to be used properly",
+                extensionInfo.extensionName,
+                extensionInfo.extensionPointName
             );
-            return;
         }
-        var extensionClassElement = (TypeElement) element;
-        var extensionAnnotation = element.getAnnotation(Extension.class);
+        return true;
+    }
 
-        if (extensionAnnotation.externallyManaged() || // not handling externally managed extensions
-           !validateVersionFormat(extensionAnnotation.version(), element, "version") ||
-           !validateVersionFormat(
-                extensionAnnotation.extensionPointVersion(),
-                element,
-                "extensionPointVersion"
-           )
-        ) {
-            return;
+
+    private boolean validateExtensionPointAssignableFromExtension(ExtensionInfo extensionInfo) {
+        if (!isAssignable(extensionInfo.extensionElement.asType(), extensionInfo.extensionPointElement.asType())) {
+            log(
+                Kind.ERROR,
+                extensionInfo.extensionElement,
+                "{} must implement or extend the extension point type {}",
+                extensionInfo.extensionName,
+                extensionInfo.extensionPointName
+            );
+            return false;
         }
+        return true;
+    }
 
 
+    private boolean validateExtensionPointAnnotation(ExtensionInfo extensionInfo) {
+        if (extensionInfo.extensionPointElement.getAnnotation(ExtensionPoint.class) == null) {
+            log(
+                Kind.ERROR,
+                extensionInfo.extensionElement,
+                "Expected extension point type '{}' is not annotated with @ExtensionPoint",
+                extensionInfo.extensionPointName
+            );
+            return false;
+        }
+        return true;
+    }
+
+
+    private boolean validateExtensionPointClassExists(ExtensionInfo extensionInfo) {
+        if (extensionInfo.extensionPointElement == null) {
+            log(
+                Kind.ERROR,
+                extensionInfo.extensionElement,
+                "Cannot find extension point class '{}'",
+                extensionInfo.extensionPointName
+            );
+            return false;
+        }
+        return true;
+    }
+
+
+    private String computeExtensionPointName(TypeElement extensionClassElement, Extension extensionAnnotation) {
         String extensionPoint = extensionAnnotation.extensionPoint();
         if (extensionPoint.isEmpty()) {
             for (TypeMirror implementedInterface : extensionClassElement.getInterfaces()) {
@@ -103,52 +186,20 @@ public class ExtensionProcessor extends AbstractProcessor {
                 extensionPoint = extensionPoint.replaceAll("\\<[^\\>]*\\>", "");
             }
         }
+        return extensionPoint;
+    }
 
-        String extension = extensionClassElement.getQualifiedName().toString();
-
-        TypeElement extensionPointClassElement = processingEnv.getElementUtils()
-            .getTypeElement(extensionPoint);
-
-        if (extensionPointClassElement == null) {
+    boolean validateElementKindIsClass(Element element) {
+        if (element.getKind() != ElementKind.CLASS) {
             log(
-                Kind.ERROR,
+                Kind.WARNING,
                 element,
-                "Cannot find extension point class '{}'",
-                extensionPoint
+                "@Extension ignored for {} (only processed for classes)",
+                element.getSimpleName()
             );
-            hasError = true;
+            return false;
         }
-
-        if (!hasError && extensionPointClassElement.getAnnotation(ExtensionPoint.class) == null) {
-            log(
-                Kind.ERROR,
-                element,
-                "Expected extension point type '{}' is not annotated with @ExtensionPoint",
-                extensionPoint
-            );
-            hasError = true;
-        }
-
-        if (!hasError && !isAssignable(
-                extensionClassElement.asType(),
-                extensionPointClassElement.asType()
-        )) {
-            log(
-                Kind.ERROR,
-                element,
-                "{} must implement or extend the extension point type {}",
-                extension,
-                extensionPoint
-            );
-            hasError = true;
-        }
-
-        if (!hasError) {
-            serviceImplementations
-                .computeIfAbsent(extensionPoint, x -> new ArrayList<>())
-                .add(extension);
-        }
-
+        return true;
     }
 
 
@@ -202,6 +253,7 @@ public class ExtensionProcessor extends AbstractProcessor {
     }
 
 
+
     private void writeFile(
         Filer filer,
         String resourcePath,
@@ -221,6 +273,11 @@ public class ExtensionProcessor extends AbstractProcessor {
 
 
     private List<String> readLines(FileObject resourceFile) {
+        return readLines(resourceFile, false);
+    }
+
+
+    private List<String> readLines(FileObject resourceFile, boolean ignoreMissing) {
         List<String> lines = new ArrayList<>();
         try {
             try (BufferedReader reader = new BufferedReader(resourceFile.openReader(true))) {
@@ -230,7 +287,9 @@ public class ExtensionProcessor extends AbstractProcessor {
                 }
             }
         } catch (IOException e) {
-            log(Kind.ERROR,"Cannot read file {} : {}", resourceFile.toUri(), e.toString());
+            if (!(e instanceof NoSuchFileException && ignoreMissing)) {
+                log(Kind.ERROR, "Cannot read file {} : {}", resourceFile.toUri(), e.toString());
+            }
         }
         return lines;
     }
@@ -268,4 +327,20 @@ public class ExtensionProcessor extends AbstractProcessor {
         );
     }
 
+
+
+    private static class ExtensionInfo {
+
+        private final TypeElement extensionElement;
+        private final String extensionName;
+        private final TypeElement extensionPointElement;
+        private final String extensionPointName;
+
+        public ExtensionInfo(TypeElement extensionElement, String extensionName, TypeElement extensionPointElement, String extensionPointName) {
+            this.extensionElement = extensionElement;
+            this.extensionName = extensionName;
+            this.extensionPointElement = extensionPointElement;
+            this.extensionPointName = extensionPointName;
+        }
+    }
 }

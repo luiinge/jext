@@ -7,13 +7,9 @@ package jext;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.NoSuchFileException;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -23,6 +19,7 @@ import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic.Kind;
@@ -34,128 +31,182 @@ import javax.tools.StandardLocation;
  */
 @SupportedAnnotationTypes(&quot;jext.Extension&quot;)
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
-<span class="nc" id="L37">public class ExtensionProcessor extends AbstractProcessor {</span>
+<span class="nc" id="L34">public class ExtensionProcessor extends AbstractProcessor {</span>
 
     @Override
     public boolean process(Set&lt;? extends TypeElement&gt; annotations, RoundEnvironment roundEnv) {
-<span class="nc" id="L41">        Map&lt;String, List&lt;String&gt;&gt; serviceImplementations = new LinkedHashMap&lt;&gt;();</span>
-<span class="nc bnc" id="L42" title="All 2 branches missed.">        for (Element element : roundEnv.getElementsAnnotatedWith(Extension.class)) {</span>
-<span class="nc" id="L43">            validateAndRegisterExtension(element, serviceImplementations);</span>
-<span class="nc" id="L44">        }</span>
-<span class="nc bnc" id="L45" title="All 2 branches missed.">        for (Element element : roundEnv.getElementsAnnotatedWith(ExtensionPoint.class)) {</span>
-<span class="nc" id="L46">            validateExtensionPoint(element);</span>
-<span class="nc" id="L47">        }</span>
-<span class="nc" id="L48">        writeMetaInfServiceDeclarations(serviceImplementations);</span>
-<span class="nc" id="L49">        return false;</span>
+<span class="nc" id="L38">        Map&lt;String, List&lt;String&gt;&gt; serviceImplementations = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        for (Element extensionElement : roundEnv.getElementsAnnotatedWith(Extension.class)) {</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">            if (validateElementKindIsClass(extensionElement)) {</span>
+<span class="nc" id="L41">                validateAndRegisterExtension((TypeElement) extensionElement, serviceImplementations);</span>
+            }
+<span class="nc" id="L43">        }</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">        for (Element extensionPointElement : roundEnv.getElementsAnnotatedWith(ExtensionPoint.class)) {</span>
+<span class="nc" id="L45">            validateExtensionPoint(extensionPointElement);</span>
+<span class="nc" id="L46">        }</span>
+<span class="nc" id="L47">        writeMetaInfServiceDeclarations(serviceImplementations);</span>
+<span class="nc" id="L48">        return false;</span>
     }
 
 
-    private void validateExtensionPoint(Element element) {
-<span class="nc bnc" id="L54" title="All 4 branches missed.">        if (element.getKind() != ElementKind.CLASS &amp;&amp; element.getKind() != ElementKind.INTERFACE) {</span>
+
+    private void validateExtensionPoint(Element extensionPointElement) {
+<span class="nc bnc" id="L54" title="All 4 branches missed.">        if (extensionPointElement.getKind() != ElementKind.CLASS &amp;&amp; extensionPointElement.getKind() != ElementKind.INTERFACE) {</span>
 <span class="nc" id="L55">            log(</span>
                 Kind.ERROR,
-                element,
+                extensionPointElement,
                 &quot;@ExtensionPoint not valid for {} (only processed for classes or interfaces)&quot;,
-<span class="nc" id="L59">                element.getSimpleName()</span>
+<span class="nc" id="L59">                extensionPointElement.getSimpleName()</span>
             );
         } else {
-<span class="nc" id="L62">            var extensionPointAnnotation = element.getAnnotation(ExtensionPoint.class);</span>
-<span class="nc" id="L63">            validateVersionFormat(extensionPointAnnotation.version(), element, &quot;version&quot;);</span>
+<span class="nc" id="L62">            var extensionPointAnnotation = extensionPointElement.getAnnotation(ExtensionPoint.class);</span>
+<span class="nc" id="L63">            validateVersionFormat(extensionPointAnnotation.version(), extensionPointElement, &quot;version&quot;);</span>
         }
 <span class="nc" id="L65">    }</span>
 
 
-
     private void validateAndRegisterExtension(
-        Element element,
+        TypeElement extensionElement,
         Map&lt;String, List&lt;String&gt;&gt; serviceImplementations
     ) {
-<span class="nc" id="L73">        boolean hasError = false;</span>
-<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (element.getKind() != ElementKind.CLASS) {</span>
-<span class="nc" id="L75">            log(</span>
+
+        boolean ignore;
+<span class="nc" id="L74">        var extensionAnnotation = extensionElement.getAnnotation(Extension.class);</span>
+
+        // not handling externally managed extensions
+<span class="nc" id="L77">        ignore = extensionAnnotation.externallyManaged();</span>
+<span class="nc bnc" id="L78" title="All 4 branches missed.">        ignore = ignore || !validateVersionFormat(extensionAnnotation.version(), extensionElement, &quot;version&quot;);</span>
+<span class="nc bnc" id="L79" title="All 4 branches missed.">        ignore = ignore || !validateVersionFormat(</span>
+<span class="nc" id="L80">            extensionAnnotation.extensionPointVersion(),</span>
+            extensionElement,
+            &quot;extensionPointVersion&quot;
+        );
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (ignore) {</span>
+<span class="nc" id="L86">            return;</span>
+        }
+
+<span class="nc" id="L89">        String extensionPointName = computeExtensionPointName(extensionElement, extensionAnnotation);</span>
+<span class="nc" id="L90">        String extensionName = extensionElement.getQualifiedName().toString();</span>
+<span class="nc" id="L91">        TypeElement extensionPointElement = processingEnv.getElementUtils().getTypeElement(extensionPointName);</span>
+<span class="nc" id="L92">        ExtensionInfo extensionInfo = new ExtensionInfo(</span>
+            extensionElement,
+            extensionName,
+            extensionPointElement,
+            extensionPointName
+        );
+
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        ignore = !validateExtensionPointClassExists(extensionInfo);</span>
+<span class="nc bnc" id="L100" title="All 4 branches missed.">        ignore = ignore || !validateExtensionPointAnnotation(extensionInfo);</span>
+<span class="nc bnc" id="L101" title="All 4 branches missed.">        ignore = ignore || !validateExtensionPointAssignableFromExtension(extensionInfo);</span>
+<span class="nc bnc" id="L102" title="All 4 branches missed.">        ignore = ignore || validateExtensionDeclaredInModuleInfo(extensionInfo);</span>
+
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (!ignore) {</span>
+<span class="nc" id="L105">            serviceImplementations</span>
+<span class="nc" id="L106">                .computeIfAbsent(extensionPointName, x -&gt; new ArrayList&lt;&gt;())</span>
+<span class="nc" id="L107">                .add(extensionName);</span>
+        }
+
+<span class="nc" id="L110">    }</span>
+
+
+    private boolean validateExtensionDeclaredInModuleInfo(ExtensionInfo extensionInfo) {
+<span class="nc" id="L114">        var module = this.processingEnv.getElementUtils().getModuleOf(extensionInfo.extensionElement);</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (module.isUnnamed()) {</span>
+<span class="nc" id="L116">            return true;</span>
+        }
+<span class="nc" id="L118">        boolean declaredInModule = module.getDirectives().stream()</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">            .filter(directive -&gt; directive.getKind() == ModuleElement.DirectiveKind.PROVIDES)</span>
+<span class="nc" id="L120">            .map(ModuleElement.ProvidesDirective.class::cast)</span>
+<span class="nc" id="L121">            .filter(provides -&gt; provides.getService().equals(extensionInfo.extensionPointElement.asType()))</span>
+<span class="nc" id="L122">            .flatMap(provides -&gt; provides.getImplementations().stream())</span>
+<span class="nc" id="L123">            .anyMatch(extensionInfo.extensionElement::equals);</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (!declaredInModule) {</span>
+<span class="nc" id="L125">            log(</span>
+                Kind.MANDATORY_WARNING,
+                extensionInfo.extensionElement,
+                &quot;{} must be declared with the directive 'provides' in module-info.java in order to be used properly&quot;,
+                extensionInfo.extensionName,
+                extensionInfo.extensionPointName
+            );
+        }
+<span class="nc" id="L133">        return true;</span>
+    }
+
+
+    private boolean validateExtensionPointAssignableFromExtension(ExtensionInfo extensionInfo) {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        if (!isAssignable(extensionInfo.extensionElement.asType(), extensionInfo.extensionPointElement.asType())) {</span>
+<span class="nc" id="L139">            log(</span>
+                Kind.ERROR,
+                extensionInfo.extensionElement,
+                &quot;{} must implement or extend the extension point type {}&quot;,
+                extensionInfo.extensionName,
+                extensionInfo.extensionPointName
+            );
+<span class="nc" id="L146">            return false;</span>
+        }
+<span class="nc" id="L148">        return true;</span>
+    }
+
+
+    private boolean validateExtensionPointAnnotation(ExtensionInfo extensionInfo) {
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        if (extensionInfo.extensionPointElement.getAnnotation(ExtensionPoint.class) == null) {</span>
+<span class="nc" id="L154">            log(</span>
+                Kind.ERROR,
+                extensionInfo.extensionElement,
+                &quot;Expected extension point type '{}' is not annotated with @ExtensionPoint&quot;,
+                extensionInfo.extensionPointName
+            );
+<span class="nc" id="L160">            return false;</span>
+        }
+<span class="nc" id="L162">        return true;</span>
+    }
+
+
+    private boolean validateExtensionPointClassExists(ExtensionInfo extensionInfo) {
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        if (extensionInfo.extensionPointElement == null) {</span>
+<span class="nc" id="L168">            log(</span>
+                Kind.ERROR,
+                extensionInfo.extensionElement,
+                &quot;Cannot find extension point class '{}'&quot;,
+                extensionInfo.extensionPointName
+            );
+<span class="nc" id="L174">            return false;</span>
+        }
+<span class="nc" id="L176">        return true;</span>
+    }
+
+
+    private String computeExtensionPointName(TypeElement extensionClassElement, Extension extensionAnnotation) {
+<span class="nc" id="L181">        String extensionPoint = extensionAnnotation.extensionPoint();</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        if (extensionPoint.isEmpty()) {</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            for (TypeMirror implementedInterface : extensionClassElement.getInterfaces()) {</span>
+<span class="nc" id="L184">                extensionPoint = implementedInterface.toString();</span>
+                // remove the &lt;..&gt; part in case it is a generic class
+<span class="nc" id="L186">                extensionPoint = extensionPoint.replaceAll(&quot;\\&lt;[^\\&gt;]*\\&gt;&quot;, &quot;&quot;);</span>
+<span class="nc" id="L187">            }</span>
+        }
+<span class="nc" id="L189">        return extensionPoint;</span>
+    }
+
+    boolean validateElementKindIsClass(Element element) {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (element.getKind() != ElementKind.CLASS) {</span>
+<span class="nc" id="L194">            log(</span>
                 Kind.WARNING,
                 element,
                 &quot;@Extension ignored for {} (only processed for classes)&quot;,
-<span class="nc" id="L79">                element.getSimpleName()</span>
+<span class="nc" id="L198">                element.getSimpleName()</span>
             );
-<span class="nc" id="L81">            return;</span>
+<span class="nc" id="L200">            return false;</span>
         }
-<span class="nc" id="L83">        var extensionClassElement = (TypeElement) element;</span>
-<span class="nc" id="L84">        var extensionAnnotation = element.getAnnotation(Extension.class);</span>
-
-<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (extensionAnnotation.externallyManaged() || // not handling externally managed extensions</span>
-<span class="nc bnc" id="L87" title="All 2 branches missed.">           !validateVersionFormat(extensionAnnotation.version(), element, &quot;version&quot;) ||</span>
-<span class="nc bnc" id="L88" title="All 2 branches missed.">           !validateVersionFormat(</span>
-<span class="nc" id="L89">                extensionAnnotation.extensionPointVersion(),</span>
-                element,
-                &quot;extensionPointVersion&quot;
-           )
-        ) {
-<span class="nc" id="L94">            return;</span>
-        }
-
-
-<span class="nc" id="L98">        String extensionPoint = extensionAnnotation.extensionPoint();</span>
-<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (extensionPoint.isEmpty()) {</span>
-<span class="nc bnc" id="L100" title="All 2 branches missed.">            for (TypeMirror implementedInterface : extensionClassElement.getInterfaces()) {</span>
-<span class="nc" id="L101">                extensionPoint = implementedInterface.toString();</span>
-                // remove the &lt;..&gt; part in case it is a generic class
-<span class="nc" id="L103">                extensionPoint = extensionPoint.replaceAll(&quot;\\&lt;[^\\&gt;]*\\&gt;&quot;, &quot;&quot;);</span>
-<span class="nc" id="L104">            }</span>
-        }
-
-<span class="nc" id="L107">        String extension = extensionClassElement.getQualifiedName().toString();</span>
-
-<span class="nc" id="L109">        TypeElement extensionPointClassElement = processingEnv.getElementUtils()</span>
-<span class="nc" id="L110">            .getTypeElement(extensionPoint);</span>
-
-<span class="nc bnc" id="L112" title="All 2 branches missed.">        if (extensionPointClassElement == null) {</span>
-<span class="nc" id="L113">            log(</span>
-                Kind.ERROR,
-                element,
-                &quot;Cannot find extension point class '{}'&quot;,
-                extensionPoint
-            );
-<span class="nc" id="L119">            hasError = true;</span>
-        }
-
-<span class="nc bnc" id="L122" title="All 4 branches missed.">        if (!hasError &amp;&amp; extensionPointClassElement.getAnnotation(ExtensionPoint.class) == null) {</span>
-<span class="nc" id="L123">            log(</span>
-                Kind.ERROR,
-                element,
-                &quot;Expected extension point type '{}' is not annotated with @ExtensionPoint&quot;,
-                extensionPoint
-            );
-<span class="nc" id="L129">            hasError = true;</span>
-        }
-
-<span class="nc bnc" id="L132" title="All 4 branches missed.">        if (!hasError &amp;&amp; !isAssignable(</span>
-<span class="nc" id="L133">                extensionClassElement.asType(),</span>
-<span class="nc" id="L134">                extensionPointClassElement.asType()</span>
-        )) {
-<span class="nc" id="L136">            log(</span>
-                Kind.ERROR,
-                element,
-                &quot;{} must implement or extend the extension point type {}&quot;,
-                extension,
-                extensionPoint
-            );
-<span class="nc" id="L143">            hasError = true;</span>
-        }
-
-<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (!hasError) {</span>
-<span class="nc" id="L147">            serviceImplementations</span>
-<span class="nc" id="L148">                .computeIfAbsent(extensionPoint, x -&gt; new ArrayList&lt;&gt;())</span>
-<span class="nc" id="L149">                .add(extension);</span>
-        }
-
-<span class="nc" id="L152">    }</span>
+<span class="nc" id="L202">        return true;</span>
+    }
 
 
     private boolean validateVersionFormat(String version, Element element, String fieldName) {
-<span class="nc" id="L156">        boolean valid = version.matches(&quot;\\d+\\.\\d+(\\..*)?&quot;);</span>
-<span class="nc bnc" id="L157" title="All 2 branches missed.">        if (!valid) {</span>
-<span class="nc" id="L158">            log(</span>
+<span class="nc" id="L207">        boolean valid = version.matches(&quot;\\d+\\.\\d+(\\..*)?&quot;);</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        if (!valid) {</span>
+<span class="nc" id="L209">            log(</span>
                 Kind.ERROR,
                 element,
                 &quot;Content of field {} ('{}') must be in form '&lt;major&gt;.&lt;minor&gt;(.&lt;patch&gt;)'&quot;,
@@ -163,43 +214,44 @@ import javax.tools.StandardLocation;
                 version
             );
         }
-<span class="nc" id="L166">        return valid;</span>
+<span class="nc" id="L217">        return valid;</span>
     }
 
 
     private boolean isAssignable(TypeMirror type, TypeMirror typeTo) {
-<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (nameWithoutGeneric(type).equals(nameWithoutGeneric(typeTo))) {</span>
-<span class="nc" id="L172">            return true;</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">        if (nameWithoutGeneric(type).equals(nameWithoutGeneric(typeTo))) {</span>
+<span class="nc" id="L223">            return true;</span>
         }
-<span class="nc bnc" id="L174" title="All 2 branches missed.">        for (TypeMirror superType : processingEnv.getTypeUtils().directSupertypes(type)) {</span>
-<span class="nc bnc" id="L175" title="All 2 branches missed.">            if (isAssignable(superType, typeTo)) {</span>
-<span class="nc" id="L176">                return true;</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">        for (TypeMirror superType : processingEnv.getTypeUtils().directSupertypes(type)) {</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">            if (isAssignable(superType, typeTo)) {</span>
+<span class="nc" id="L227">                return true;</span>
             }
-<span class="nc" id="L178">        }</span>
-<span class="nc" id="L179">        return false;</span>
+<span class="nc" id="L229">        }</span>
+<span class="nc" id="L230">        return false;</span>
     }
 
 
     private String nameWithoutGeneric(TypeMirror type) {
-<span class="nc" id="L184">        int genericPosition = type.toString().indexOf('&lt;');</span>
-<span class="nc bnc" id="L185" title="All 2 branches missed.">        return genericPosition &lt; 0 ?</span>
-<span class="nc" id="L186">            type.toString() :</span>
-<span class="nc" id="L187">            type.toString().substring(0, genericPosition);</span>
+<span class="nc" id="L235">        int genericPosition = type.toString().indexOf('&lt;');</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        return genericPosition &lt; 0 ?</span>
+<span class="nc" id="L237">            type.toString() :</span>
+<span class="nc" id="L238">            type.toString().substring(0, genericPosition);</span>
     }
 
 
     private void writeMetaInfServiceDeclarations(Map&lt;String, List&lt;String&gt;&gt; serviceImplementations) {
-<span class="nc" id="L192">        Filer filer = this.processingEnv.getFiler();</span>
-<span class="nc bnc" id="L193" title="All 2 branches missed.">        for (Entry&lt;String, List&lt;String&gt;&gt; mapEntry : serviceImplementations.entrySet()) {</span>
-<span class="nc" id="L194">            String extension = mapEntry.getKey();</span>
-<span class="nc" id="L195">            String resourcePath = &quot;META-INF/services/&quot; + extension;</span>
+<span class="nc" id="L243">        Filer filer = this.processingEnv.getFiler();</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">        for (Entry&lt;String, List&lt;String&gt;&gt; mapEntry : serviceImplementations.entrySet()) {</span>
+<span class="nc" id="L245">            String extension = mapEntry.getKey();</span>
+<span class="nc" id="L246">            String resourcePath = &quot;META-INF/services/&quot; + extension;</span>
             try {
-<span class="nc" id="L197">                writeFile(filer, resourcePath, mapEntry);</span>
-<span class="nc" id="L198">            } catch (IOException e) {</span>
-<span class="nc" id="L199">                log(Kind.ERROR, &quot;UNEXPECTED ERROR: {}&quot;, e.toString());</span>
-<span class="nc" id="L200">            }</span>
-<span class="nc" id="L201">        }</span>
-<span class="nc" id="L202">    }</span>
+<span class="nc" id="L248">                writeFile(filer, resourcePath, mapEntry);</span>
+<span class="nc" id="L249">            } catch (IOException e) {</span>
+<span class="nc" id="L250">                log(Kind.ERROR, &quot;UNEXPECTED ERROR: {}&quot;, e.toString());</span>
+<span class="nc" id="L251">            }</span>
+<span class="nc" id="L252">        }</span>
+<span class="nc" id="L253">    }</span>
+
 
 
     private void writeFile(
@@ -207,66 +259,89 @@ import javax.tools.StandardLocation;
         String resourcePath,
         Entry&lt;String, List&lt;String&gt;&gt; entry
     ) throws IOException {
-<span class="nc" id="L210">        FileObject resourceFile = filer</span>
-<span class="nc" id="L211">            .getResource(StandardLocation.CLASS_OUTPUT, &quot;&quot;, resourcePath);</span>
-<span class="nc bnc" id="L212" title="All 2 branches missed.">        List&lt;String&gt; oldExtensions = resourceFile.getLastModified() == 0 ? List.of() : readLines(resourceFile);</span>
-<span class="nc" id="L213">        Set&lt;String&gt; allExtensions = new LinkedHashSet&lt;&gt;();</span>
-<span class="nc" id="L214">        allExtensions.addAll(oldExtensions);</span>
-<span class="nc" id="L215">        allExtensions.addAll(entry.getValue());</span>
-<span class="nc" id="L216">        resourceFile = filer.createResource(StandardLocation.CLASS_OUTPUT, &quot;&quot;, resourcePath);</span>
-<span class="nc" id="L217">        writeLines(allExtensions, resourceFile);</span>
+<span class="nc" id="L262">        FileObject resourceFile = filer</span>
+<span class="nc" id="L263">            .getResource(StandardLocation.CLASS_OUTPUT, &quot;&quot;, resourcePath);</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">        List&lt;String&gt; oldExtensions = resourceFile.getLastModified() == 0 ? List.of() : readLines(resourceFile);</span>
+<span class="nc" id="L265">        Set&lt;String&gt; allExtensions = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L266">        allExtensions.addAll(oldExtensions);</span>
+<span class="nc" id="L267">        allExtensions.addAll(entry.getValue());</span>
+<span class="nc" id="L268">        resourceFile = filer.createResource(StandardLocation.CLASS_OUTPUT, &quot;&quot;, resourcePath);</span>
+<span class="nc" id="L269">        writeLines(allExtensions, resourceFile);</span>
         //log(Kind.WARNING, &quot;Generated service declaration file {}&quot;, resourceFile);
-<span class="nc" id="L219">        System.out.println(&quot;[jext] :: Generated service declaration file &quot;+resourceFile.getName());</span>
-<span class="nc" id="L220">    }</span>
+<span class="nc" id="L271">        System.out.println(&quot;[jext] :: Generated service declaration file &quot;+resourceFile.getName());</span>
+<span class="nc" id="L272">    }</span>
 
 
     private List&lt;String&gt; readLines(FileObject resourceFile) {
-<span class="nc" id="L224">        List&lt;String&gt; lines = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L276">        return readLines(resourceFile, false);</span>
+    }
+
+
+    private List&lt;String&gt; readLines(FileObject resourceFile, boolean ignoreMissing) {
+<span class="nc" id="L281">        List&lt;String&gt; lines = new ArrayList&lt;&gt;();</span>
         try {
-<span class="nc" id="L226">            try (BufferedReader reader = new BufferedReader(resourceFile.openReader(true))) {</span>
+<span class="nc" id="L283">            try (BufferedReader reader = new BufferedReader(resourceFile.openReader(true))) {</span>
                 String line;
-<span class="nc bnc" id="L228" title="All 2 branches missed.">                while ((line = reader.readLine()) != null) {</span>
-<span class="nc" id="L229">                    lines.add(line);</span>
+<span class="nc bnc" id="L285" title="All 2 branches missed.">                while ((line = reader.readLine()) != null) {</span>
+<span class="nc" id="L286">                    lines.add(line);</span>
                 }
             }
-<span class="nc" id="L232">        } catch (IOException e) {</span>
-<span class="nc" id="L233">            log(Kind.ERROR,&quot;Cannot read file {} : {}&quot;, resourceFile.toUri(), e.toString());</span>
-<span class="nc" id="L234">        }</span>
-<span class="nc" id="L235">        return lines;</span>
+<span class="nc" id="L289">        } catch (IOException e) {</span>
+<span class="nc bnc" id="L290" title="All 4 branches missed.">            if (!(e instanceof NoSuchFileException &amp;&amp; ignoreMissing)) {</span>
+<span class="nc" id="L291">                log(Kind.ERROR, &quot;Cannot read file {} : {}&quot;, resourceFile.toUri(), e.toString());</span>
+            }
+<span class="nc" id="L293">        }</span>
+<span class="nc" id="L294">        return lines;</span>
     }
 
 
     private void writeLines(Set&lt;String&gt; lines, FileObject resourceFile) {
         try {
-<span class="nc" id="L241">            try (BufferedWriter writer = new BufferedWriter(resourceFile.openWriter())) {</span>
-<span class="nc bnc" id="L242" title="All 2 branches missed.">                for (String line : lines) {</span>
-<span class="nc" id="L243">                    writer.append(line);</span>
-<span class="nc" id="L244">                    writer.newLine();</span>
-<span class="nc" id="L245">                }</span>
+<span class="nc" id="L300">            try (BufferedWriter writer = new BufferedWriter(resourceFile.openWriter())) {</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">                for (String line : lines) {</span>
+<span class="nc" id="L302">                    writer.append(line);</span>
+<span class="nc" id="L303">                    writer.newLine();</span>
+<span class="nc" id="L304">                }</span>
             }
-<span class="nc" id="L247">        } catch (IOException e) {</span>
-<span class="nc" id="L248">            log(Kind.ERROR, &quot;error writing {} : {}&quot;, resourceFile.toUri(), e.toString());</span>
-<span class="nc" id="L249">        }</span>
-<span class="nc" id="L250">    }</span>
+<span class="nc" id="L306">        } catch (IOException e) {</span>
+<span class="nc" id="L307">            log(Kind.ERROR, &quot;error writing {} : {}&quot;, resourceFile.toUri(), e.toString());</span>
+<span class="nc" id="L308">        }</span>
+<span class="nc" id="L309">    }</span>
 
 
 
 
     private void log(Kind kind, String message, Object... messageArgs) {
-<span class="nc" id="L256">        processingEnv.getMessager().printMessage(</span>
+<span class="nc" id="L315">        processingEnv.getMessager().printMessage(</span>
             kind,
-<span class="nc" id="L258">            &quot;[jext] :: &quot; + String.format(message.replace(&quot;{}&quot;, &quot;%s&quot;), messageArgs)</span>
+<span class="nc" id="L317">            &quot;[jext] :: &quot; + String.format(message.replace(&quot;{}&quot;, &quot;%s&quot;), messageArgs)</span>
         );
-<span class="nc" id="L260">    }</span>
+<span class="nc" id="L319">    }</span>
 
 
     private void log(Kind kind, Element element, String message, Object... messageArgs) {
-<span class="nc" id="L264">        processingEnv.getMessager().printMessage(</span>
+<span class="nc" id="L323">        processingEnv.getMessager().printMessage(</span>
             kind,
-<span class="nc" id="L266">            &quot;[jext] at &quot; + element.asType().toString() + &quot; :: &quot; + String</span>
-<span class="nc" id="L267">                .format(message.replace(&quot;{}&quot;, &quot;%s&quot;), messageArgs)</span>
+<span class="nc" id="L325">            &quot;[jext] at &quot; + element.asType().toString() + &quot; :: &quot; + String</span>
+<span class="nc" id="L326">                .format(message.replace(&quot;{}&quot;, &quot;%s&quot;), messageArgs)</span>
         );
-<span class="nc" id="L269">    }</span>
+<span class="nc" id="L328">    }</span>
 
+
+
+    private static class ExtensionInfo {
+
+        private final TypeElement extensionElement;
+        private final String extensionName;
+        private final TypeElement extensionPointElement;
+        private final String extensionPointName;
+
+<span class="nc" id="L339">        public ExtensionInfo(TypeElement extensionElement, String extensionName, TypeElement extensionPointElement, String extensionPointName) {</span>
+<span class="nc" id="L340">            this.extensionElement = extensionElement;</span>
+<span class="nc" id="L341">            this.extensionName = extensionName;</span>
+<span class="nc" id="L342">            this.extensionPointElement = extensionPointElement;</span>
+<span class="nc" id="L343">            this.extensionPointName = extensionPointName;</span>
+<span class="nc" id="L344">        }</span>
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.2.201808211720</span></div></body></html>

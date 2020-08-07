@@ -27,11 +27,20 @@ use both superclass and subclass independently
 
 Usage
 -----------------------------------------------------------------------------------------
-The usage of **jExt** can be split in three roles: the extension point declarer, the extension
-provider, and the extension consumer. Those roles can be played by the same actor or different ones,
-but the usage do not vary.
 
-### Declaring a extension point
+### Maven dependency
+Include the following within the `<dependencies>` section of your `pom.xml` file:
+```xml
+<dependency>
+    <groupId>io.github.luiinge</groupId>
+    <artifactId>jext</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+### Quick start
+
+#### Declaring a extension point
 Simply annotate an interface with `@Extension`:
 
 ```java
@@ -43,7 +52,7 @@ public interface MyExtensionPoint {
 }
 ```
 
-### Providing an extension
+#### Providing an extension
 Simply annotate a class implementing the interface with `@ExtensionPoint`:
 
 ```java
@@ -59,7 +68,7 @@ public class MyExtension implements MyExtensionPoint {
 ```
 
 
-### Consuming an extension point
+#### Consuming an extension point
 Use a `ExtensionManager` instance to get one or many implementations of the extension point:
 
 ```java
@@ -88,35 +97,64 @@ will not be selected by the `ExtensionManager` preventing potential errors.
 If you do not care about versioning, just ignore it; version `1.0.0` will be used by default.
 
 
+### Use your own extension loader
+The default behaviour of any declared extension is to be loaded by means of the `java.util.ServiceLoader`
+class. However, you can provide your own extension loading mechanism. You have to create a new class 
+implementing the `jext.ExtensionLoader` interface, which consist of one method:
+```java
+<T> Iterable<T> load(Class<T> type, ClassLoader loader);
+```
+The only constraint is that the classes of the objects retrieved 
+are annotated with `@Extension` and the annotation property `externallyManaged` is set 
+to `true`. This is necessary in order to avoid loading it using the default extension loader 
+but manage the versioning at the same time.
+ 
+Now, your custom extension loader have to be registered in the `ServiceLoader` registry, 
+writing the fully qualified name of the class in the file `META-INF/services/jext.ExtensionLoader`.
+Package both files in a `jar` and include it in the classpath or modulepath along with the `jext` 
+library in order to be accessible.
+
+A common scenario where custom extension loaders are required is using an _inversion of control_ 
+framework that manage the lifecycle of components on its own. Check the 
+[jExt-Spring](https://github.com/luiinge/jext-spring) project as an example of this.
+  
+
 ### Other considerations
 
 #### Java modules
 When Jigsaw module system is present, extension points and extensions must be declared manually
-in your `module-info.java` file using the `uses`and `provides` statements. For **jExt** to
-automatically manage that, a byte-code manipulator is required. Experiments regarding this feature
-are planned and it is likely that it would be present in a future version.
-
-
-
-### Maven dependency
-Include the following within the `<dependencies>` section of your `pom.xml` file:
-```xml
-<dependency>
-    <groupId>jext</groupId>
-    <artifactId>jext</artifactId>
-    <version>1.0.0</version>
-</dependency>
+in your `module-info.java` file using `provides` directive. Although it partially defeats the 
+purpose of fully automation, none straightforward solution can be applied to solve that, so   
+the only outcome is live with it. Nonetheless, the compiler can detect the lack of the required 
+directives in the module definition, and it will emit a warning message informing you of this 
+situation, similar to the following:
+```
+[WARNING] [jext] at jext.MyExtensionV2_6 :: jext.MyExtensionV2_6 must be declared with the directive 'provides' in module-info.java in order to be used properly
 ```
 
-Use the following repository to obtain this artifact:
-```xml
-<repositories>
-    <repository>
-        <id>github</id>
-        <url>https://luiinge.github.io/maven-repo</url>
-    </repository>
-</repositories>
-```
+
+
+Authors
+-----------------------------------------------------------------------------------------
+
+- Luis Iñesta Gelabert  |  luiinge@gmail.com
+
+
+
+Contributions
+-----------------------------------------------------------------------------------------
+If you want to contribute to this project, visit the
+[Github project](https://github.com/luiinge/jext). You can open a new issue / feature
+request, or make a pull request to consider. You will be added
+as a contributor in this very page.
+
+Issue reporting
+-----------------------------------------------------------------------------------------
+If you have found any defect in this software, please report it 
+in [Github project Issues](https://github.com/luiinge/jext/issues). 
+There is no guarantee that it would be fixed in the following version but it would 
+be addressed as soon as possible.   
+ 
 
 License
 -----------------------------------------------------------------------------------------
@@ -144,21 +182,6 @@ License
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 ```
-
-
-Authors
------------------------------------------------------------------------------------------
-
-- Luis Iñesta Gelabert  |  luiinge@gmail.com
-
-
-Contributions
------------------------------------------------------------------------------------------
-If you want to contribute to this project, visit the
-[Github project](https://github.com/luiinge/jext). You can open a new issue / feature
-request, or make a pull request to consider. If your contribution is worthing, you will be added
-as a contributor in this very page.
-
 
 
 
