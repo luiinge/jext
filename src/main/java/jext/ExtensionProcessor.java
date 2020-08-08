@@ -8,9 +8,13 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
-
+import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.RoundEnvironment;
@@ -27,7 +31,7 @@ import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
 /**
- *    An extension processor that validate and publish the provided extensions
+ * An extension processor that validate and publish the provided extensions
  */
 @SupportedAnnotationTypes("jext.Extension")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
@@ -38,10 +42,13 @@ public class ExtensionProcessor extends AbstractProcessor {
         Map<String, List<String>> serviceImplementations = new LinkedHashMap<>();
         for (Element extensionElement : roundEnv.getElementsAnnotatedWith(Extension.class)) {
             if (validateElementKindIsClass(extensionElement)) {
-                validateAndRegisterExtension((TypeElement) extensionElement, serviceImplementations);
+                validateAndRegisterExtension(
+                    (TypeElement) extensionElement, serviceImplementations
+                );
             }
         }
-        for (Element extensionPointElement : roundEnv.getElementsAnnotatedWith(ExtensionPoint.class)) {
+        for (Element extensionPointElement : roundEnv
+            .getElementsAnnotatedWith(ExtensionPoint.class)) {
             validateExtensionPoint(extensionPointElement);
         }
         writeMetaInfServiceDeclarations(serviceImplementations);
@@ -49,9 +56,9 @@ public class ExtensionProcessor extends AbstractProcessor {
     }
 
 
-
     private void validateExtensionPoint(Element extensionPointElement) {
-        if (extensionPointElement.getKind() != ElementKind.CLASS && extensionPointElement.getKind() != ElementKind.INTERFACE) {
+        if (extensionPointElement.getKind() != ElementKind.CLASS
+                        && extensionPointElement.getKind() != ElementKind.INTERFACE) {
             log(
                 Kind.ERROR,
                 extensionPointElement,
@@ -59,8 +66,11 @@ public class ExtensionProcessor extends AbstractProcessor {
                 extensionPointElement.getSimpleName()
             );
         } else {
-            var extensionPointAnnotation = extensionPointElement.getAnnotation(ExtensionPoint.class);
-            validateVersionFormat(extensionPointAnnotation.version(), extensionPointElement, "version");
+            var extensionPointAnnotation = extensionPointElement
+                .getAnnotation(ExtensionPoint.class);
+            validateVersionFormat(
+                extensionPointAnnotation.version(), extensionPointElement, "version"
+            );
         }
     }
 
@@ -75,7 +85,11 @@ public class ExtensionProcessor extends AbstractProcessor {
 
         // not handling externally managed extensions
         ignore = extensionAnnotation.externallyManaged();
-        ignore = ignore || !validateVersionFormat(extensionAnnotation.version(), extensionElement, "version");
+        ignore = ignore || !validateVersionFormat(
+            extensionAnnotation.version(),
+            extensionElement,
+            "version"
+        );
         ignore = ignore || !validateVersionFormat(
             extensionAnnotation.extensionPointVersion(),
             extensionElement,
@@ -86,9 +100,12 @@ public class ExtensionProcessor extends AbstractProcessor {
             return;
         }
 
-        String extensionPointName = computeExtensionPointName(extensionElement, extensionAnnotation);
+        String extensionPointName = computeExtensionPointName(
+            extensionElement, extensionAnnotation
+        );
         String extensionName = extensionElement.getQualifiedName().toString();
-        TypeElement extensionPointElement = processingEnv.getElementUtils().getTypeElement(extensionPointName);
+        TypeElement extensionPointElement = processingEnv.getElementUtils()
+            .getTypeElement(extensionPointName);
         ExtensionInfo extensionInfo = new ExtensionInfo(
             extensionElement,
             extensionName,
@@ -99,7 +116,7 @@ public class ExtensionProcessor extends AbstractProcessor {
         ignore = !validateExtensionPointClassExists(extensionInfo);
         ignore = ignore || !validateExtensionPointAnnotation(extensionInfo);
         ignore = ignore || !validateExtensionPointAssignableFromExtension(extensionInfo);
-        ignore = ignore || validateExtensionDeclaredInModuleInfo(extensionInfo);
+        ignore = ignore || !validateExtensionDeclaredInModuleInfo(extensionInfo);
 
         if (!ignore) {
             serviceImplementations
@@ -111,14 +128,16 @@ public class ExtensionProcessor extends AbstractProcessor {
 
 
     private boolean validateExtensionDeclaredInModuleInfo(ExtensionInfo extensionInfo) {
-        var module = this.processingEnv.getElementUtils().getModuleOf(extensionInfo.extensionElement);
+        var module = this.processingEnv.getElementUtils()
+            .getModuleOf(extensionInfo.extensionElement);
         if (module.isUnnamed()) {
             return true;
         }
-        boolean declaredInModule = module.getDirectives().stream()
+        boolean declaredInModule = module.getDirectives()
+            .stream()
             .filter(directive -> directive.getKind() == ModuleElement.DirectiveKind.PROVIDES)
             .map(ModuleElement.ProvidesDirective.class::cast)
-            .filter(provides -> provides.getService().equals(extensionInfo.extensionPointElement.asType()))
+            .filter(provides -> provides.getService().equals(extensionInfo.extensionPointElement))
             .flatMap(provides -> provides.getImplementations().stream())
             .anyMatch(extensionInfo.extensionElement::equals);
         if (!declaredInModule) {
@@ -135,7 +154,9 @@ public class ExtensionProcessor extends AbstractProcessor {
 
 
     private boolean validateExtensionPointAssignableFromExtension(ExtensionInfo extensionInfo) {
-        if (!isAssignable(extensionInfo.extensionElement.asType(), extensionInfo.extensionPointElement.asType())) {
+        if (!isAssignable(
+            extensionInfo.extensionElement.asType(), extensionInfo.extensionPointElement.asType()
+        )) {
             log(
                 Kind.ERROR,
                 extensionInfo.extensionElement,
@@ -177,7 +198,10 @@ public class ExtensionProcessor extends AbstractProcessor {
     }
 
 
-    private String computeExtensionPointName(TypeElement extensionClassElement, Extension extensionAnnotation) {
+    private String computeExtensionPointName(
+        TypeElement extensionClassElement,
+        Extension extensionAnnotation
+    ) {
         String extensionPoint = extensionAnnotation.extensionPoint();
         if (extensionPoint.isEmpty()) {
             for (TypeMirror implementedInterface : extensionClassElement.getInterfaces()) {
@@ -188,6 +212,7 @@ public class ExtensionProcessor extends AbstractProcessor {
         }
         return extensionPoint;
     }
+
 
     boolean validateElementKindIsClass(Element element) {
         if (element.getKind() != ElementKind.CLASS) {
@@ -233,13 +258,11 @@ public class ExtensionProcessor extends AbstractProcessor {
 
     private String nameWithoutGeneric(TypeMirror type) {
         int genericPosition = type.toString().indexOf('<');
-        return genericPosition < 0 ?
-            type.toString() :
-            type.toString().substring(0, genericPosition);
+        return genericPosition<0 ? type.toString() : type.toString().substring(0, genericPosition);
     }
 
 
-    private void writeMetaInfServiceDeclarations(Map<String, List<String>> serviceImplementations) {
+    private void writeMetaInfServiceDeclarations(Map<String,List<String>> serviceImplementations) {
         Filer filer = this.processingEnv.getFiler();
         for (Entry<String, List<String>> mapEntry : serviceImplementations.entrySet()) {
             String extension = mapEntry.getKey();
@@ -253,7 +276,6 @@ public class ExtensionProcessor extends AbstractProcessor {
     }
 
 
-
     private void writeFile(
         Filer filer,
         String resourcePath,
@@ -261,14 +283,18 @@ public class ExtensionProcessor extends AbstractProcessor {
     ) throws IOException {
         FileObject resourceFile = filer
             .getResource(StandardLocation.CLASS_OUTPUT, "", resourcePath);
-        List<String> oldExtensions = resourceFile.getLastModified() == 0 ? List.of() : readLines(resourceFile);
+        List<String> oldExtensions = resourceFile.getLastModified() == 0 ?
+            List.of() :
+            readLines(resourceFile)
+        ;
         Set<String> allExtensions = new LinkedHashSet<>();
         allExtensions.addAll(oldExtensions);
         allExtensions.addAll(entry.getValue());
         resourceFile = filer.createResource(StandardLocation.CLASS_OUTPUT, "", resourcePath);
         writeLines(allExtensions, resourceFile);
-        //log(Kind.WARNING, "Generated service declaration file {}", resourceFile);
-        System.out.println("[jext] :: Generated service declaration file "+resourceFile.getName());
+        System.out.println(
+            "[jext] :: Generated service declaration file " + resourceFile.getName()
+        );
     }
 
 
@@ -309,24 +335,23 @@ public class ExtensionProcessor extends AbstractProcessor {
     }
 
 
-
-
     private void log(Kind kind, String message, Object... messageArgs) {
-        processingEnv.getMessager().printMessage(
-            kind,
-            "[jext] :: " + String.format(message.replace("{}", "%s"), messageArgs)
-        );
+        processingEnv.getMessager()
+            .printMessage(
+                kind,
+                "[jext] :: " + String.format(message.replace("{}", "%s"), messageArgs)
+            );
     }
 
 
     private void log(Kind kind, Element element, String message, Object... messageArgs) {
-        processingEnv.getMessager().printMessage(
-            kind,
-            "[jext] at " + element.asType().toString() + " :: " + String
-                .format(message.replace("{}", "%s"), messageArgs)
-        );
+        processingEnv.getMessager()
+            .printMessage(
+                kind,
+                "[jext] at " + element.asType().toString() + " :: " + String
+                    .format(message.replace("{}", "%s"), messageArgs)
+            );
     }
-
 
 
     private static class ExtensionInfo {
@@ -336,7 +361,12 @@ public class ExtensionProcessor extends AbstractProcessor {
         private final TypeElement extensionPointElement;
         private final String extensionPointName;
 
-        public ExtensionInfo(TypeElement extensionElement, String extensionName, TypeElement extensionPointElement, String extensionPointName) {
+        public ExtensionInfo(
+            TypeElement extensionElement,
+            String extensionName,
+            TypeElement extensionPointElement,
+            String extensionPointName
+        ) {
             this.extensionElement = extensionElement;
             this.extensionName = extensionName;
             this.extensionPointElement = extensionPointElement;
