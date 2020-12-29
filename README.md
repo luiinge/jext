@@ -1,6 +1,19 @@
 jExt
 ================================================================================
 
+![GitHub](https://img.shields.io/github/license/luiinge/jext?style=plastic)
+![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/luiinge/jext/quality%20check/master?style=plastic)
+![Maven Central](https://img.shields.io/maven-central/v/io.github.luiinge/jext?style=plastic)
+
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=luiinge_jext&metric=alert_status)](https://sonarcloud.io/dashboard?id=luiinge_jext)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=luiinge_jext&metric=ncloc)](https://sonarcloud.io/dashboard?id=luiinge_jext)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=luiinge_jext&metric=coverage)](https://sonarcloud.io/dashboard?id=luiinge_jext)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=luiinge_jext&metric=bugs)](https://sonarcloud.io/dashboard?id=luiinge_jext)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=luiinge_jext&metric=code_smells)](https://sonarcloud.io/dashboard?id=luiinge_jext)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=luiinge_jext&metric=duplicated_lines_density)](https://sonarcloud.io/dashboard?id=luiinge_jext)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=luiinge_jext&metric=sqale_index)](https://sonarcloud.io/dashboard?id=luiinge_maven-jext)
+
+
 jExt is a simple library that allows you to define a *plug-in* architecture detecting the
 Java classes that implements a specific interface. It mostly relies on the standard
 [extension mechanism provided][1] by Java by means of the [ServiceLoader][2]
