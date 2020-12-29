@@ -1,5 +1,5 @@
 /**
- * @author Luis Iñesta Gelabert - linesta@iti.es | luiinge@gmail.com
+ * @author Luis Iñesta Gelabert - luiinge@gmail.com
  */
 package jext;
 
@@ -74,6 +74,11 @@ public @interface Extension {
      */
     boolean externallyManaged() default false;
 
+
+    /**
+     * Scope where this extension should be instantiated
+     */
+    ExtensionScope scope() default ExtensionScope.GLOBAL;
 
     /**
      * Priority used when extensions collide, the highest value have priority

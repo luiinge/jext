@@ -116,7 +116,8 @@ public class ExtensionProcessor extends AbstractProcessor {
         ignore = !validateExtensionPointClassExists(extensionInfo);
         ignore = ignore || !validateExtensionPointAnnotation(extensionInfo);
         ignore = ignore || !validateExtensionPointAssignableFromExtension(extensionInfo);
-        ignore = ignore || !validateExtensionDeclaredInModuleInfo(extensionInfo);
+
+        notifyExtensionDeclaredInModuleInfo(extensionInfo);
 
         if (!ignore) {
             serviceImplementations
@@ -127,11 +128,11 @@ public class ExtensionProcessor extends AbstractProcessor {
     }
 
 
-    private boolean validateExtensionDeclaredInModuleInfo(ExtensionInfo extensionInfo) {
+    private void notifyExtensionDeclaredInModuleInfo(ExtensionInfo extensionInfo) {
         var module = this.processingEnv.getElementUtils()
             .getModuleOf(extensionInfo.extensionElement);
         if (module.isUnnamed()) {
-            return true;
+            return;
         }
         boolean declaredInModule = module.getDirectives()
             .stream()
@@ -149,7 +150,6 @@ public class ExtensionProcessor extends AbstractProcessor {
                 extensionInfo.extensionPointName
             );
         }
-        return true;
     }
 
 
@@ -281,6 +281,7 @@ public class ExtensionProcessor extends AbstractProcessor {
         String resourcePath,
         Entry<String, List<String>> entry
     ) throws IOException {
+
         FileObject resourceFile = filer
             .getResource(StandardLocation.CLASS_OUTPUT, "", resourcePath);
         List<String> oldExtensions = resourceFile.getLastModified() == 0 ?
@@ -292,18 +293,12 @@ public class ExtensionProcessor extends AbstractProcessor {
         allExtensions.addAll(entry.getValue());
         resourceFile = filer.createResource(StandardLocation.CLASS_OUTPUT, "", resourcePath);
         writeLines(allExtensions, resourceFile);
-        System.out.println(
-            "[jext] :: Generated service declaration file " + resourceFile.getName()
-        );
+        log(Kind.NOTE, "[jext] :: Generated service declaration file {}", resourceFile.getName());
     }
+
 
 
     private List<String> readLines(FileObject resourceFile) {
-        return readLines(resourceFile, false);
-    }
-
-
-    private List<String> readLines(FileObject resourceFile, boolean ignoreMissing) {
         List<String> lines = new ArrayList<>();
         try {
             try (BufferedReader reader = new BufferedReader(resourceFile.openReader(true))) {
@@ -312,10 +307,10 @@ public class ExtensionProcessor extends AbstractProcessor {
                     lines.add(line);
                 }
             }
+        } catch (NoSuchFileException e) {
+            log(Kind.ERROR, "File does not exist : {} [error was {}]", resourceFile.toUri(), e.toString());
         } catch (IOException e) {
-            if (!(e instanceof NoSuchFileException && ignoreMissing)) {
-                log(Kind.ERROR, "Cannot read file {} : {}", resourceFile.toUri(), e.toString());
-            }
+            log(Kind.ERROR, "Cannot read file {} : {}", resourceFile.toUri(), e.toString());
         }
         return lines;
     }

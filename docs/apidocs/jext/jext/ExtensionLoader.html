@@ -13,8 +13,7 @@
 <!--[if IE]>
 <script type="text/javascript" src="../../jquery/jszip-utils/dist/jszip-utils-ie.min.js"></script>
 <![endif]-->
-<script type="text/javascript" src="../../jquery/jquery-3.3.1.js"></script>
-<script type="text/javascript" src="../../jquery/jquery-migrate-3.0.1.js"></script>
+<script type="text/javascript" src="../../jquery/jquery-3.5.1.js"></script>
 <script type="text/javascript" src="../../jquery/jquery-ui.js"></script>
 </head>
 <body>
@@ -27,7 +26,7 @@
     catch(err) {
     }
 //-->
-var data = {"i0":6};
+var data = {"i0":6,"i1":6};
 var tabs = {65535:["t0","All Methods"],2:["t2","Instance Methods"],4:["t3","Abstract Methods"]};
 var altColor = "altColor";
 var rowColor = "rowColor";
@@ -153,9 +152,17 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <th class="colLast" scope="col">Description</th>
 </tr>
 <tr id="i0" class="altColor">
-<td class="colFirst"><code>&lt;T&gt;&nbsp;Iterable&lt;T&gt;</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#load(java.lang.Class,java.lang.ClassLoader)">load</a></span>&#8203;(Class&lt;T&gt;&nbsp;type,
-    ClassLoader&nbsp;loader)</code></th>
+<td class="colFirst"><code>void</code></td>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#invalidateSession(java.lang.String)">invalidateSession</a></span>&#8203;(String&nbsp;sessionID)</code></th>
+<td class="colLast">
+<div class="block">Invalidate the given session, removing possible stored data from cache.</div>
+</td>
+</tr>
+<tr id="i1" class="rowColor">
+<td class="colFirst"><code>&lt;T&gt;&nbsp;List&lt;T&gt;</code></td>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#load(java.lang.Class,java.util.List,java.lang.String)">load</a></span>&#8203;(Class&lt;T&gt;&nbsp;type,
+    List&lt;ClassLoader&gt;&nbsp;classLoaders,
+    String&nbsp;sessionID)</code></th>
 <td class="colLast">
 <div class="block">Given a expected type and a class loader, retrieves a collection
  of instances of the type.</div>
@@ -178,14 +185,15 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <!--   -->
 </a>
 <h3>Method Detail</h3>
-<a id="load(java.lang.Class,java.lang.ClassLoader)">
+<a id="load(java.lang.Class,java.util.List,java.lang.String)">
 <!--   -->
 </a>
-<ul class="blockListLast">
+<ul class="blockList">
 <li class="blockList">
 <h4>load</h4>
-<pre class="methodSignature">&lt;T&gt;&nbsp;Iterable&lt;T&gt;&nbsp;load&#8203;(Class&lt;T&gt;&nbsp;type,
-                     ClassLoader&nbsp;loader)</pre>
+<pre class="methodSignature">&lt;T&gt;&nbsp;List&lt;T&gt;&nbsp;load&#8203;(Class&lt;T&gt;&nbsp;type,
+                 List&lt;ClassLoader&gt;&nbsp;classLoaders,
+                 String&nbsp;sessionID)</pre>
 <div class="block">Given a expected type and a class loader, retrieves a collection
  of instances of the type.</div>
 <dl>
@@ -193,9 +201,27 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <dd><code>T</code> - The type of the extension point</dd>
 <dt><span class="paramLabel">Parameters:</span></dt>
 <dd><code>type</code> - The type of the extension point</dd>
-<dd><code>loader</code> - The class loader to be used</dd>
+<dd><code>classLoaders</code> - The class loaders to be used</dd>
+<dd><code>sessionID</code> - The string identifier of the extension manager session</dd>
 <dt><span class="returnLabel">Returns:</span></dt>
-<dd>An iterable with the retrieved instances. It cannot be null but can be empty.</dd>
+<dd>An list with the retrieved instances. It cannot be null but can be empty.</dd>
+</dl>
+</li>
+</ul>
+<a id="invalidateSession(java.lang.String)">
+<!--   -->
+</a>
+<ul class="blockListLast">
+<li class="blockList">
+<h4>invalidateSession</h4>
+<pre class="methodSignature">void&nbsp;invalidateSession&#8203;(String&nbsp;sessionID)</pre>
+<div class="block">Invalidate the given session, removing possible stored data from cache.
+ <p>
+ Clients can provide a void implementation if no session-related cache
+ is used.</div>
+<dl>
+<dt><span class="paramLabel">Parameters:</span></dt>
+<dd><code>sessionID</code> - The string identifier of the extension manager session</dd>
 </dl>
 </li>
 </ul>

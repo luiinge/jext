@@ -4,6 +4,7 @@
 package jext.internal;
 
 
+import java.util.List;
 import java.util.function.Predicate;
 
 import jext.Extension;
@@ -13,24 +14,37 @@ import jext.ExtensionPoint;
 
 public class ExtensionLoadContext<T> {
 
-    public static <T> ExtensionLoadContext<T> all(Class<T> extensionPoint) {
-        return new ExtensionLoadContext<>(extensionPoint, dataOf(extensionPoint), selectAll());
+    public static <T> ExtensionLoadContext<T> all(String sessionID, Class<T> extensionPoint) {
+        return new ExtensionLoadContext<>(
+            sessionID,
+            extensionPoint,
+            dataOf(extensionPoint),
+            selectAll()
+        );
     }
 
 
     public static <T> ExtensionLoadContext<T> satisfying(
+        String sessionID,
         Class<T> extensionPoint,
         Predicate<T> condition
     ) {
-        return new ExtensionLoadContext<>(extensionPoint, dataOf(extensionPoint), condition);
+        return new ExtensionLoadContext<>(
+            sessionID,
+            extensionPoint,
+            dataOf(extensionPoint),
+            condition
+        );
     }
 
 
     public static <T> ExtensionLoadContext<T> satisfyingData(
+        String sessionID,
         Class<T> extensionPoint,
         Predicate<Extension> condition
     ) {
         return new ExtensionLoadContext<>(
+            sessionID,
             extensionPoint,
             dataOf(extensionPoint),
             conditionFromAnnotation(condition)
@@ -41,17 +55,20 @@ public class ExtensionLoadContext<T> {
     private final Class<T> extensionPoint;
     private final ExtensionPoint extensionPointData;
     private final Predicate<T> condition;
+    private final String sessionID;
 
-    private ClassLoader classLoader;
+    private List<ClassLoader> classLoaders;
     private ExtensionLoader extensionLoader;
     private boolean externallyManaged;
 
 
     private ExtensionLoadContext(
+        String sessionID,
         Class<T> extensionPoint,
         ExtensionPoint extensionPointData,
         Predicate<T> condition
     ) {
+        this.sessionID = sessionID;
         this.extensionPoint = extensionPoint;
         this.extensionPointData = extensionPointData;
         this.condition = condition;
@@ -63,11 +80,16 @@ public class ExtensionLoadContext<T> {
 
 
     public ExtensionLoadContext<T> withInternalLoader(
-        ClassLoader classLoader,
+        List<ClassLoader> classLoaders,
         ExtensionLoader extensionLoader
     ) {
-        var context = new ExtensionLoadContext<T>(extensionPoint, extensionPointData, condition);
-        context.classLoader = classLoader;
+        var context = new ExtensionLoadContext<T>(
+            sessionID,
+            extensionPoint,
+            extensionPointData,
+            condition
+        );
+        context.classLoaders = classLoaders;
         context.extensionLoader = extensionLoader;
         context.externallyManaged = false;
         return context;
@@ -76,19 +98,24 @@ public class ExtensionLoadContext<T> {
 
 
     public ExtensionLoadContext<T> withExternalLoader(
-        ClassLoader classLoader,
+        List<ClassLoader> classLoaders,
         ExtensionLoader extensionLoader
     ) {
-        var context = new ExtensionLoadContext<T>(extensionPoint, extensionPointData, condition);
-        context.classLoader = classLoader;
+        var context = new ExtensionLoadContext<T>(
+            sessionID,
+            extensionPoint,
+            extensionPointData,
+            condition
+        );
+        context.classLoaders = classLoaders;
         context.extensionLoader = extensionLoader;
         context.externallyManaged = true;
         return context;
     }
 
 
-    public Iterable<T> load() {
-        return extensionLoader.load(extensionPoint, classLoader);
+    public List<T> load() {
+        return extensionLoader.load(extensionPoint, classLoaders, sessionID);
     }
 
 
@@ -122,8 +149,8 @@ public class ExtensionLoadContext<T> {
         if (extensionLoader != null) {
             string.append(" loaded by ").append(extensionLoader);
         }
-        if (classLoader != null) {
-            string.append(" using class loader ").append(classLoader);
+        if (classLoaders != null) {
+            string.append(" using class loaders ").append(classLoaders);
         }
         return string.append("]").toString();
     }

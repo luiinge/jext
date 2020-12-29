@@ -44,7 +44,7 @@ Include the following within the `<dependencies>` section of your `pom.xml` file
 Simply annotate an interface with `@Extension`:
 
 ```java
-@Extension
+@ExtensionPoint
 public interface MyExtensionPoint {
 
     List<String> provideStuff();
@@ -53,10 +53,10 @@ public interface MyExtensionPoint {
 ```
 
 #### Providing an extension
-Simply annotate a class implementing the interface with `@ExtensionPoint`:
+Annotate a class implementing the interface with `@ExtensionPoint`:
 
 ```java
-@ExtensionPoint
+@Extension(provider="my.company", name="my.extension", version="1.0")
 public class MyExtension implements MyExtensionPoint {
 
     @Override
@@ -73,13 +73,26 @@ Use a `ExtensionManager` instance to get one or many implementations of the exte
 
 ```java
     ExtensionManager extensionManager = new ExtensionManager();
+    // get one 
     Optional<MyExtensionPoint> extension = extensionManager.getExtension(MyExtensionPoint.class);
+    // get many
+    Stream<MyExtensionPoin> extensions = extensionManager.getExtensions(MyExtensionPoint.class);
 ```
 
 You can apply several filters (predicates) when asking for an extension, such as provider or
 specific versions.
 
 
+### Scopes
+Each extension can define a specific scope that will be used to decide whether it is necessary to 
+create a new instance or reuse an existing one. The available scopes are:
+- `GLOBAL` : the same instance would be used along the lifetime of the application; this is the 
+  default scope when not specified
+- `LOCAL` : a new instance would be created each time the extension is requested
+- `SESSION` : the same instance would be used along the lifetime of the extension manager; if 
+you create several managers, each one will reuse its own instance  
+
+  
 ### Versioning
 
 One major improvement over the regular `ServiceLoader` is avoiding version mismatches. Since
@@ -92,39 +105,45 @@ extension is suitable for an extension point. The `ExtensionPoint` annotation ha
 `version`, used in the form of `<major>.<minor>[.<patch>]`, and the `Extension` annotation
 has the property `extensionPointVersion` in the same manner. If the existing extension uses
 an extension point version that is not compatible with the actual extension point version, it
-will not be selected by the `ExtensionManager` preventing potential errors.
+will not be selected by the `ExtensionManager`, preventing this way potential errors.
 
 If you do not care about versioning, just ignore it; version `1.0.0` will be used by default.
 
 
 ### Use your own extension loader
 The default behaviour of any declared extension is to be loaded by means of the `java.util.ServiceLoader`
-class. However, you can provide your own extension loading mechanism. You have to create a new class 
-implementing the `jext.ExtensionLoader` interface, which consist of one method:
-```java
-<T> Iterable<T> load(Class<T> type, ClassLoader loader);
-```
-The only constraint is that the classes of the objects retrieved 
-are annotated with `@Extension` and the annotation property `externallyManaged` is set 
-to `true`. This is necessary in order to avoid loading it using the default extension loader 
-but manage the versioning at the same time.
+class. However, you can provide your own extension loading mechanism by creating a new 
+class implementing the `jext.ExtensionLoader` interface.
  
-Now, your custom extension loader have to be registered in the `ServiceLoader` registry, 
+Your custom extension loader have to be registered in the `ServiceLoader` registry, 
 writing the fully qualified name of the class in the file `META-INF/services/jext.ExtensionLoader`.
 Package both files in a `jar` and include it in the classpath or modulepath along with the `jext` 
 library in order to be accessible.
 
-A common scenario where custom extension loaders are required is using an _inversion of control_ 
-framework that manage the lifecycle of components on its own. Check the 
-[jExt-Spring](https://github.com/luiinge/jext-spring) project as an example of this.
+There are two constraints that external loaders should abide by:
+- Only retrieve extensions that are mark as `externallyManaged`
+- Honour the defined scope of the extension, returning new instances or reusing ones accordingly.
+
+> A common scenario where custom extension loaders are required is the use of an _inversion of 
+> control_ framework that manage the lifecycle of components on its own. Check the 
+[jExt-Spring](https://github.com/luiinge/jext-spring) project for an example of this.
   
 
 ### Other considerations
 
+#### Finalizing instances
+The internal extension loader keeps a cache of used extensions per session (that is, per instance 
+of `ExtensionManager`). Due to the specifics of the Java finalization process and garbage 
+collection, you must clear the cached objects manually once you are done ( by invoking 
+`extensionManager.clear()` ). Otherwise, the cached objects would remain in memory indefinitely.
+That is not a problem when your extension manager is a singleton bound to the lifetime of the 
+application, but if you are planning to use several instances of the extension manager, this 
+becomes an issue to be aware of.
+
 #### Java modules
-When Jigsaw module system is present, extension points and extensions must be declared manually
+When the Java Module System is present, extension points and extensions must be declared manually
 in your `module-info.java` file using `provides` directive. Although it partially defeats the 
-purpose of fully automation, none straightforward solution can be applied to solve that, so   
+purpose of fully automation, none straightforward solution can be applied to solve that, so 
 the only outcome is live with it. Nonetheless, the compiler can detect the lack of the required 
 directives in the module definition, and it will emit a warning message informing you of this 
 situation, similar to the following:

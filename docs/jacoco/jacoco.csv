@@ -1,0 +1,8 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+jExt,jext,ExtensionManager,88,505,10,22,16,109,13,38,5,30
+jExt,jext,ExtensionScope,0,34,0,0,0,4,0,1,0,1
+jExt,jext,ExtensionProcessor.ExtensionInfo,0,15,0,0,0,6,0,1,0,1
+jExt,jext,ExtensionProcessor,278,407,29,39,42,103,31,26,5,18
+jExt,jext.internal,ExtensionVersion,4,76,1,7,1,15,2,9,1,6
+jExt,jext.internal,InternalExtensionLoader,48,169,5,7,20,44,5,17,0,15
+jExt,jext.internal,ExtensionLoadContext,15,166,3,5,3,40,4,17,1,16
