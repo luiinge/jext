@@ -1,7 +1,0 @@
-jext.MyExtensionLocal
-jext.MyExtensionGlobal
-jext.MyExtensionSession
-jext.NotAnnotatedExtension
-jext.ExternallyManagedExtension
-jext.OverridableExtension
-jext.OverriderExtension
