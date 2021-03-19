@@ -1,0 +1,15 @@
+{
+    "modelVersion": 1,
+    "pluginLayers": [
+        { "plugin" : "a:p1:1"  },
+        { "plugin" : "a:p2:1"  },
+        {
+           "plugin" : "a:p3:1",
+           "extendsPlugin" : "a:p1:1",
+           "runtimeDependencies": [
+              "a:p4:1",
+              "a:p5:1"
+           ]
+        }
+    ]
+}

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.luiinge</groupId>
+        <artifactId>maven-java-starter</artifactId>
+        <version>11.2.0</version>
+    </parent>
+
+
+    <groupId>io.github.luiinge</groupId>
+    <artifactId>jext</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+
+
+    <name>jExt</name>
+    <description>Simple extension support for Java</description>
+    <inceptionYear>2020</inceptionYear>
+
+
+    <url>https://github.com/luiinge/jext</url>
+
+    <organization>
+        <name>luiinge</name>
+        <url>https://github.com/luiinge</url>
+    </organization>
+
+    <developers>
+        <developer>
+            <name>Luis Iñesta Gelabert</name>
+            <email>luiinge@gmail.com</email>
+        </developer>
+    </developers>
+
+    <issueManagement>
+        <system>Github</system>
+        <url>https://github.com/luiinge/jext/issues</url>
+    </issueManagement>
+
+    <scm>
+        <connection>scm:git:git://github.com/luiinge/jext.git</connection>
+        <developerConnection>scm:git:ssh://github.com:luiinge/jext.git</developerConnection>
+        <url>https://github.com/luiinge/jext/tree/master</url>
+    </scm>
+
+
+
+
+    <properties>
+        <compile-testing.version>0.19</compile-testing.version>
+        <maven.surefire.version>3.0.0-M5</maven.surefire.version>
+    </properties>
+
+
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.testing.compile</groupId>
+            <artifactId>compile-testing</artifactId>
+            <version>${compile-testing.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+
+
+
+</project>

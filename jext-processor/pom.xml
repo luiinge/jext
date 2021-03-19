@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.luiinge</groupId>
+        <artifactId>maven-java-starter</artifactId>
+        <version>11.2.0</version>
+    </parent>
+
+
+    <groupId>io.github.luiinge</groupId>
+    <artifactId>jext-processor</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+
+
+    <name>jExt Annotation Processor </name>
+    <description>Annotation processor for jExt</description>
+    <inceptionYear>2021</inceptionYear>
+
+
+    <url>https://github.com/luiinge/jext-processor</url>
+
+    <organization>
+        <name>luiinge</name>
+        <url>https://github.com/luiinge</url>
+    </organization>
+
+    <developers>
+        <developer>
+            <name>Luis Iñesta Gelabert</name>
+            <email>luiinge@gmail.com</email>
+        </developer>
+    </developers>
+
+    <issueManagement>
+        <system>Github</system>
+        <url>https://github.com/luiinge/jext-processor/issues</url>
+    </issueManagement>
+
+    <scm>
+        <connection>scm:git:git://github.com/luiinge/jext-processor.git</connection>
+        <developerConnection>scm:git:ssh://github.com:luiinge/jext-processor.git</developerConnection>
+        <url>https://github.com/luiinge/jext-processor/tree/master</url>
+    </scm>
+
+
+
+
+    <properties>
+        <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
+        <maven.jar.plugin.version>3.0.0</maven.jar.plugin.version>
+        <maven-model-builder.version>3.6.3</maven-model-builder.version>
+        <plexus-utils.version>3.2.1</plexus-utils.version>
+        <maven.jar.plugin.version>3.0.0</maven.jar.plugin.version>
+        <compile-testing.version>0.19</compile-testing.version>
+    </properties>
+
+
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.luiinge</groupId>
+            <artifactId>jext</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+            <version>${javax.annotation-api.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-model-builder</artifactId>
+            <version>${maven-model-builder.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-utils</artifactId>
+            <version>${plexus-utils.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.testing.compile</groupId>
+            <artifactId>compile-testing</artifactId>
+            <version>${compile-testing.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+
+
+    <build>
+        <plugins>
+            <!-- two-step compiling -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.version}</version>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <proc>none</proc>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>compile-with-processors</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>

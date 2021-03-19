@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProcessingHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jExt Annotation Processor</a> &gt; <a href="index.source.html" class="el_package">jext.processor</a> &gt; <span class="el_source">ProcessingHelper.java</span></div><h1>ProcessingHelper.java</h1><pre class="source lang-java linenums">package jext.processor;
+
+import java.io.*;
+import java.nio.file.NoSuchFileException;
+import java.util.*;
+import javax.annotation.processing.*;
+import javax.lang.model.element.Element;
+import javax.tools.*;
+import javax.tools.Diagnostic.Kind;
+
+
+class ProcessingHelper {
+
+    private final ProcessingEnvironment processingEnv;
+
+
+<span class="fc" id="L17">    ProcessingHelper(ProcessingEnvironment processingEnv) {</span>
+<span class="fc" id="L18">        this.processingEnv = processingEnv;</span>
+<span class="fc" id="L19">    }</span>
+
+
+    void log(Diagnostic.Kind kind, String message, Object... messageArgs) {
+<span class="fc" id="L23">        processingEnv.getMessager()</span>
+<span class="fc" id="L24">            .printMessage(</span>
+<span class="fc" id="L25">                kind,</span>
+<span class="fc" id="L26">                &quot;[jext] :: &quot; + String.format(message.replace(&quot;{}&quot;, &quot;%s&quot;), messageArgs)</span>
+            );
+<span class="fc" id="L28">    }</span>
+
+
+    void log(Diagnostic.Kind kind, Element element, String message, Object... messageArgs) {
+<span class="fc" id="L32">        processingEnv.getMessager()</span>
+<span class="fc" id="L33">            .printMessage(</span>
+<span class="fc" id="L34">                kind,</span>
+<span class="fc" id="L35">                &quot;[jext] [&quot; + element + &quot;] &quot;+ String.format(message.replace(&quot;{}&quot;, &quot;%s&quot;), messageArgs)</span>
+            );
+<span class="fc" id="L37">    }</span>
+
+
+
+    void writeResource(String resource, List&lt;String&gt; lines) {
+<span class="fc" id="L42">        System.out.println(&quot;XXXXXXXXXXwriting &quot;+resource);</span>
+<span class="fc" id="L43">        FileObject resourceFile = null;</span>
+        try {
+<span class="fc" id="L45">            resourceFile = getFiler().createResource(StandardLocation.CLASS_OUTPUT, &quot;&quot;, resource);</span>
+<span class="fc" id="L46">            try (BufferedWriter writer = new BufferedWriter(resourceFile.openWriter())) {</span>
+<span class="fc bfc" id="L47" title="All 2 branches covered.">                for (String line : lines) {</span>
+<span class="fc" id="L48">                    writer.append(line);</span>
+<span class="fc" id="L49">                    writer.newLine();</span>
+                }
+            }
+<span class="nc" id="L52">        } catch (NoSuchFileException e) {</span>
+<span class="nc" id="L53">            log(Kind.NOTE, &quot;File does not exist : {}&quot;, resourceFile);</span>
+<span class="nc" id="L54">        } catch (IOException | IllegalStateException e) {</span>
+<span class="nc" id="L55">            log(Kind.ERROR, &quot;Cannot write file {} : {}&quot;, resourceFile, e.toString());</span>
+        }
+<span class="fc" id="L57">    }</span>
+
+
+
+    Filer getFiler() {
+<span class="fc" id="L62">        return processingEnv.getFiler();</span>
+    }
+
+
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.2.201808211720</span></div></body></html>

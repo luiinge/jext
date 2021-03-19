@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InternalExtensionLoader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jExt</a> &gt; <a href="index.source.html" class="el_package">jext.internal</a> &gt; <span class="el_source">InternalExtensionLoader.java</span></div><h1>InternalExtensionLoader.java</h1><pre class="source lang-java linenums">/**
+ * @author Luis Iñesta Gelabert - linesta@iti.es | luiinge@gmail.com
+ */
+package jext.internal;
+
+
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import jext.ExtensionLoader;
+
+
+
+<span class="fc" id="L18">public class InternalExtensionLoader implements ExtensionLoader {</span>
+
+<span class="fc" id="L20">    private static final Logger LOGGER = LoggerFactory.getLogger(InternalExtensionLoader.class);</span>
+
+<span class="fc" id="L22">    private static final Map&lt;Class&lt;?&gt;, Object&gt; globalInstances = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L23">    private static final Map&lt;String, Map&lt;Class&lt;?&gt;, Object&gt;&gt; instancesPerSession =</span>
+        new ConcurrentHashMap&lt;&gt;();
+<span class="fc" id="L25">    private static final Set&lt;Class&lt;?&gt;&gt; withoutMetadata = ConcurrentHashMap.newKeySet();</span>
+<span class="fc" id="L26">    private static final Set&lt;Class&lt;?&gt;&gt; externallyManaged = ConcurrentHashMap.newKeySet();</span>
+
+    @Override
+    public &lt;T&gt; List&lt;T&gt; load(Class&lt;T&gt; type, List&lt;ClassLoader&gt; classLoaders, String sessionID) {
+<span class="fc" id="L30">        return classLoaders.stream()</span>
+<span class="fc" id="L31">           .flatMap(classLoader -&gt; load(type,classLoader))</span>
+<span class="fc" id="L32">           .filter(this::filterPrototypesWithoutMetadata)</span>
+<span class="fc" id="L33">           .filter(this::filterExternallyManaged)</span>
+<span class="fc" id="L34">           .map(prototype -&gt; instantiate(prototype, sessionID))</span>
+<span class="fc" id="L35">           .filter(Optional::isPresent)</span>
+<span class="fc" id="L36">           .map(Optional::get)</span>
+<span class="fc" id="L37">           .collect(Collectors.toList());</span>
+    }
+
+
+    @Override
+    public void invalidateSession(String sessionID) {
+<span class="fc" id="L43">        instancesPerSession.remove(sessionID);</span>
+<span class="fc" id="L44">    }</span>
+
+
+    private boolean filterPrototypesWithoutMetadata(Object prototype) {
+<span class="fc" id="L48">        Class&lt;?&gt; prototypeClass = prototype.getClass();</span>
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        if (withoutMetadata.contains(prototypeClass)) {</span>
+<span class="nc" id="L50">            return false;</span>
+        }
+<span class="fc" id="L52">        var metadata = prototypeClass.getAnnotation(jext.Extension.class);</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">        if (metadata == null) {</span>
+<span class="nc" id="L54">            LOGGER.debug(</span>
+                &quot;Class {} is not annotated with {} so it will be ignored&quot;,
+<span class="nc" id="L56">                prototypeClass.getCanonicalName(),</span>
+<span class="nc" id="L57">                jext.Extension.class.getCanonicalName()</span>
+            );
+<span class="nc" id="L59">            withoutMetadata.add(prototypeClass);</span>
+<span class="nc" id="L60">            return false;</span>
+        }
+<span class="fc" id="L62">        return true;</span>
+    }
+
+
+
+    private boolean filterExternallyManaged(Object prototype) {
+<span class="fc" id="L68">        Class&lt;?&gt; prototypeClass = prototype.getClass();</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if (externallyManaged.contains(prototypeClass)) {</span>
+<span class="nc" id="L70">            return false;</span>
+        }
+<span class="fc" id="L72">        var metadata = prototypeClass.getAnnotation(jext.Extension.class);</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        if (metadata.externallyManaged()) {</span>
+<span class="nc" id="L74">            LOGGER.debug(</span>
+                &quot;Class {} is externally managed and ignored by the internal extension loader&quot;,
+<span class="nc" id="L76">                prototypeClass.getCanonicalName()</span>
+            );
+<span class="nc" id="L78">            externallyManaged.add(prototypeClass);</span>
+<span class="nc" id="L79">            return false;</span>
+        }
+<span class="fc" id="L81">        return true;</span>
+    }
+
+
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private &lt;T&gt; Optional&lt;T&gt; instantiate (T prototype, String sessionID) {
+
+<span class="fc" id="L89">        Class&lt;?&gt; prototypeClass = prototype.getClass();</span>
+<span class="fc" id="L90">        var metadata = prototypeClass.getAnnotation(jext.Extension.class);</span>
+<span class="fc" id="L91">        T instance = null;</span>
+<span class="pc bpc" id="L92" title="1 of 4 branches missed.">        switch (metadata.scope()) {</span>
+            case LOCAL:
+<span class="fc" id="L94">                instance = newInstance(prototypeClass);</span>
+<span class="fc" id="L95">                break;</span>
+            case SESSION:
+<span class="fc" id="L97">                instance = (T) instancesPerSession</span>
+<span class="fc" id="L98">               .computeIfAbsent(sessionID, x-&gt; new ConcurrentHashMap&lt;&gt;())</span>
+<span class="fc" id="L99">               .computeIfAbsent(prototypeClass, x -&gt; newInstance(prototypeClass));</span>
+<span class="fc" id="L100">                break;</span>
+            case GLOBAL:
+<span class="fc" id="L102">                instance = (T) globalInstances</span>
+<span class="fc" id="L103">               .computeIfAbsent(prototypeClass, x -&gt; newInstance(prototypeClass));</span>
+<span class="fc" id="L104">                break;</span>
+            default:
+<span class="nc" id="L106">                instance = prototype;</span>
+        }
+<span class="fc" id="L108">        return Optional.ofNullable(instance);</span>
+    }
+
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private &lt;T&gt; T newInstance(Class&lt;?&gt; type) {
+        try {
+<span class="fc" id="L115">            return (T) type.getConstructor().newInstance();</span>
+<span class="nc" id="L116">        } catch (ReflectiveOperationException e) {</span>
+<span class="nc" id="L117">            LOGGER.error(</span>
+                &quot;Class {} cannot be instantiated, a public constructor with &quot; +
+                &quot;zero arguments is required [error was: {}]&quot;,
+<span class="nc" id="L120">                type.getCanonicalName(),</span>
+<span class="nc" id="L121">                e.toString()</span>
+            );
+<span class="nc" id="L123">            return null;</span>
+        }
+    }
+
+
+    private &lt;T&gt; Stream&lt;T&gt; load(Class&lt;T&gt; type, ClassLoader classLoader) {
+        try {
+            // dynamically declaration of 'use' directive, otherwise it will cause an error
+<span class="fc" id="L131">            InternalExtensionLoader.class.getModule().addUses(type);</span>
+<span class="fc" id="L132">            return ServiceLoader.load(type, classLoader).stream().map(ServiceLoader.Provider::get);</span>
+<span class="nc" id="L133">        } catch (ServiceConfigurationError e) {</span>
+<span class="nc" id="L134">            LOGGER.error(&quot;Error loading extension of type {}&quot;,type,e);</span>
+<span class="nc" id="L135">            return Stream.empty();</span>
+        }
+    }
+
+
+    @Override
+    public String toString() {
+<span class="fc" id="L142">        return &quot;Built-in extension loader&quot;;</span>
+    }
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.2.201808211720</span></div></body></html>

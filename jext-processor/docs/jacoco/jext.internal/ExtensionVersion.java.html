@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExtensionVersion.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jExt</a> &gt; <a href="index.source.html" class="el_package">jext.internal</a> &gt; <span class="el_source">ExtensionVersion.java</span></div><h1>ExtensionVersion.java</h1><pre class="source lang-java linenums">/**
+ * @author Luis Iñesta Gelabert - linesta@iti.es | luiinge@gmail.com
+ */
+package jext.internal;
+
+import java.util.NoSuchElementException;
+import java.util.stream.Stream;
+
+public class ExtensionVersion {
+
+    public static ExtensionVersion of(String version) {
+<span class="fc" id="L12">        return new ExtensionVersion(version);</span>
+    }
+
+    private final int major;
+    private final int minor;
+    private final String patch;
+
+
+<span class="fc" id="L20">    private ExtensionVersion(String version) {</span>
+<span class="fc" id="L21">        var parts = Stream.of(version.split(&quot;\\.&quot;)).iterator();</span>
+        try {
+<span class="fc" id="L23">            this.major = Integer.parseInt(parts.next());</span>
+<span class="pc bpc" id="L24" title="1 of 2 branches missed.">            this.minor = parts.hasNext() ? Integer.parseInt(parts.next()) : 0;</span>
+<span class="fc bfc" id="L25" title="All 2 branches covered.">            this.patch = parts.hasNext() ? parts.next() : &quot;&quot;;</span>
+<span class="fc" id="L26">        } catch (NoSuchElementException | NumberFormatException e) {</span>
+<span class="fc" id="L27">            throw new IllegalArgumentException(</span>
+<span class="fc" id="L28">                &quot;Not valid version number &quot; + version + &quot; (&quot; + e.getMessage() + &quot;)&quot;</span>
+            );
+<span class="fc" id="L30">        }</span>
+<span class="fc" id="L31">    }</span>
+
+
+    public int major() {
+<span class="fc" id="L35">        return major;</span>
+    }
+
+
+    public int minor() {
+<span class="fc" id="L40">        return minor;</span>
+    }
+
+
+    public String patch() {
+<span class="nc" id="L45">        return patch;</span>
+    }
+
+    public boolean isCompatibleWith(ExtensionVersion otherVersion) {
+<span class="fc bfc" id="L49" title="All 4 branches covered.">        return (major == otherVersion.major &amp;&amp; minor &gt;= otherVersion.minor);</span>
+    }
+
+
+    @Override
+    public String toString() {
+<span class="fc" id="L55">        return major + &quot;.&quot; + minor;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.2.201808211720</span></div></body></html>

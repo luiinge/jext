@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: jext.processor.TestProcessor
+-------------------------------------------------------------------------------
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.55 sec - in jext.processor.TestProcessor
