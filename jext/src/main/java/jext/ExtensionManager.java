@@ -9,11 +9,11 @@ import java.lang.annotation.Annotation;
 import java.util.*;
 import java.util.ServiceLoader.Provider;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import jext.internal.*;
 import org.slf4j.*;
-import jext.internal.BootLayerProvider;
-
-
 
 
 public class ExtensionManager {
@@ -41,8 +41,21 @@ public class ExtensionManager {
     }
 
 
-
     public <T> Stream<T> getExtensions(Class<T> extensionPoint) {
+        return getExtensions(extensionPoint, x->true);
+    }
+
+
+    public <T> Stream<T> getExtensions(Class<T> extensionPoint, Predicate<Class<?>> filter) {
+        return getExtensions(extensionPoint, filter, new InjectionHandler(this,LOGGER));
+    }
+
+
+    <T> Stream<T> getExtensions(
+        Class<T> extensionPoint,
+        Predicate<Class<?>> filter,
+        InjectionHandler injection
+    ) {
 
         addUseDirective(extensionPoint);
         validateAnnotatedWith(extensionPoint,ExtensionPoint.class);
@@ -51,6 +64,7 @@ public class ExtensionManager {
             .layers()
             .map(layer -> ServiceLoader.load(layer, extensionPoint))
             .flatMap(ServiceLoader::stream)
+            .filter(provider -> filter.test(provider.type()))
             .filter(provider -> validateProvider(provider, extensionPoint))
             .collect(toSet());
 
@@ -63,7 +77,7 @@ public class ExtensionManager {
         return candidates.stream()
             .filter(provider -> !isOverridenByOtherExtension(provider, overridenExtensions))
             .sorted(this::comparePriority)
-            .map(this::instantiate)
+            .map(provider -> instantiate(extensionPoint, provider, injection))
             .flatMap(Optional::stream);
     }
 
@@ -92,20 +106,26 @@ public class ExtensionManager {
     }
 
 
-    private <T> Optional<T> instantiate(Provider<T> provider) {
-        var extension = extensionOf(provider);
+    private <T,E> Optional<E> instantiate(
+        Class<T> extensionPoint,
+        Provider<E> provider,
+        InjectionHandler injection
+    ) {
+        var extensionMetadata = extensionOf(provider);
         ExtensionLoader loader = null;
         // this is the default value, but it is only the interface, not a real implementation
-        if (extension.loadedWith() != ExtensionLoader.class) {
+        if (extensionMetadata.loadedWith() != ExtensionLoader.class) {
             loader = (ExtensionLoader) instances.computeIfAbsent(
-                extension.loadedWith(),
+                extensionMetadata.loadedWith(),
                 type->newInstance(type).orElse(null)
             );
         }
         if (loader == null) {
             loader = this::load;
         }
-        return loader.load(provider,extension.scope());
+        return loader
+           .load(provider,extensionMetadata.scope())
+           .map(extension -> injection.injectExtensions(extensionPoint, extension));
     }
 
 
@@ -221,6 +241,15 @@ public class ExtensionManager {
         var implementationType = provider.type().getCanonicalName();
         return (extension.overridable() && overridenExtensions.contains(implementationType));
     }
+
+
+
+
+
+
+
+
+
 
 
     private <T> Extension extensionOf(Provider<T> provider) {

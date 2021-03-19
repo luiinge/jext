@@ -68,7 +68,7 @@ public class TestExtensionManager {
     }
 
     @Test
-    public void scopeIsHonouredInMultipleCalls() {
+    public void scopeIsHonouredAlongMultipleCalls() {
         var globalFirstCall = extensionManager.getExtensions(ExtensionPointF.class)
             .filter(ExtensionFGlobal.class::isInstance).findAny().orElseThrow();
         var globalSecondCall = extensionManager.getExtensions(ExtensionPointF.class)
@@ -87,5 +87,63 @@ public class TestExtensionManager {
     @Test
     public void canRetrieveExtensionUsingExternalLoader() {
         assertThat(extensionManager.getExtension(ExtensionPointG.class)).isNotEmpty();
+    }
+
+
+    @Test
+    public void singleExtensionCanBeInjectedIntoAnotherExtension() {
+        var extension = extensionManager.getExtension(ExtensionPointH1.class);
+        var assertion = assertThat(extension)
+            .containsInstanceOf(ExtensionH1.class)
+            .map(ExtensionH1.class::cast);
+        assertion.map(ExtensionH1::injectedExtension).isNotEmpty();
+        assertion.map(ExtensionH1::nonInjectedExtension).isEmpty();
+    }
+
+
+    @Test
+    public void severalExtensionCanBeInjectedIntoAnotherExtension() {
+        var extension = extensionManager.getExtension(ExtensionPointH1.class).orElseThrow();
+        assertThat(extension).isInstanceOf(ExtensionH1.class);
+        ExtensionH1 extensionH1 = (ExtensionH1) extension;
+        assertThat(extensionH1.injectedList())
+            .hasSize(2)
+            .anyMatch(ExtensionH5_1.class::isInstance)
+            .anyMatch(ExtensionH5_2.class::isInstance);
+        assertThat(extensionH1.injectedSet())
+            .hasSize(2)
+            .anyMatch(ExtensionH5_1.class::isInstance)
+            .anyMatch(ExtensionH5_2.class::isInstance);
+        assertThat(extensionH1.injectedCollection())
+            .hasSize(2)
+            .anyMatch(ExtensionH5_1.class::isInstance)
+            .anyMatch(ExtensionH5_2.class::isInstance);
+        assertThat(extensionH1.nonParametrizedList())
+            .isNull();
+    }
+
+
+    @Test
+    public void extensionInjectionAcceptsDependencyLoops() {
+        var extension = extensionManager.getExtension(ExtensionPointH3.class);
+        assertThat(extension).containsInstanceOf(ExtensionH3.class);
+        ExtensionH3 injection = (ExtensionH3) extension.orElseThrow();
+        assertThat(injection.injectedExtension()).isInstanceOf(ExtensionH4.class);
+        ExtensionH4 injected = (ExtensionH4) injection.injectedExtension();
+        assertThat(injected.injectedExtension()).isSameAs(injection);
+    }
+
+
+    @Test
+    public void extensionCanInjectListWithItself() {
+        var extension = extensionManager.getExtension(ExtensionPointI.class);
+        assertThat(extension).containsInstanceOf(ExtensionI1.class);
+        ExtensionI1 injection = (ExtensionI1) extension.orElseThrow();
+        System.out.println(injection.injectedList());
+        assertThat(injection.injectedList())
+            .hasSize(2)
+            .anyMatch(ExtensionI1.class::isInstance)
+            .anyMatch(ExtensionI2.class::isInstance);
+        ;
     }
 }
