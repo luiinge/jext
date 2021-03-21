@@ -38,7 +38,7 @@ public class TestProcessor {
        .hadErrorContaining(
            "[jext] :: Extensions implementing extension point jext.test.api.StuffProvider must be declared in the module-info.java file:\n"+
            "  \n"+
-           "  \tprovides jext.test.api.StuffProvider with\n"+
+           "  \tprovides jext.test.api.StuffProvider with \n"+
            "  \t\tjext.test.api.StuffProviderB,\n"+
            "  \t\tjext.test.api.StuffProviderA;"
        );
@@ -56,8 +56,10 @@ public class TestProcessor {
            "Plugin-Vendor: io.github.luiinge\n"+
            "Plugin-Name: jext-processor\n"+
            "Plugin-Version: 2.0.0-SNAPSHOT\n"+
-           "Plugin-Dependencies: io.github.luiinge:jext:2.0.0-SNAPSHOT,javax.annotation:javax.annotation-api:1.3.2,org.apache.maven:maven-model-builder:3.6.3,org.codehaus.plexus:plexus-utils:3.2.1,com.google.testing.compile:compile-testing:0.19\n"
-       );
+           "Plugin-Dependencies: io.github.luiinge:jext:2.0.0-SNAPSHOT \n" +
+           " javax.annotation:javax.annotation-api:1.3.2 \n" +
+           " org.apache.maven:maven-model-builder:3.6.3 \n" +
+           " org.codehaus.plexus:plexus-utils:3.2.1\n");
    }
 
 

@@ -39,6 +39,7 @@ public class ManifestGeneratorProcessor {
         String artifactId = pomModel.getArtifactId();
         String version = pomModel.getVersion();
         List<String> dependencies = pomModel.getDependencies().stream()
+            .filter(dependency -> !"test".equals(dependency.getScope()))
             .map(this::coordinates)
             .collect(toList());
 
@@ -113,7 +114,7 @@ public class ManifestGeneratorProcessor {
         manifest.add("Plugin-Vendor: "+groupId);
         manifest.add("Plugin-Name: "+artifactId);
         manifest.add("Plugin-Version: "+version);
-        manifest.add("Plugin-Dependencies: "+dependencies.stream().collect(joining(",")));
+        manifest.add("Plugin-Dependencies: "+dependencies.stream().collect(joining(" \n ")));
         helper.writeResource("META-INF/MANIFEST.MF",manifest);
     }
 

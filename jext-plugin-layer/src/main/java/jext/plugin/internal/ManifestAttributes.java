@@ -24,7 +24,10 @@ public final class ManifestAttributes {
 
     public static String[] pluginDependencies(Manifest manifest) {
        String dependencies = manifest.getMainAttributes().getValue(PLUGIN_DEPENDENCIES);
-       return (dependencies == null || dependencies.isBlank() ? new String[0] : dependencies.split(","));
+       return (dependencies == null || dependencies.isBlank() ?
+           new String[0] :
+           dependencies.stripLeading().stripTrailing().split(" ")
+       );
     }
 
 

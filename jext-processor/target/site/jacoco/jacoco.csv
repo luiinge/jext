@@ -1,5 +1,0 @@
-GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
-jExt Annotation Processor,jext.processor,JextProcessor.ExtensionInfo,0,15,0,0,0,6,0,1,0,1
-jExt Annotation Processor,jext.processor,ManifestGeneratorProcessor,51,116,7,7,8,28,7,4,0,4
-jExt Annotation Processor,jext.processor,JextProcessor,65,608,16,62,22,143,16,46,0,23
-jExt Annotation Processor,jext.processor,ProcessingHelper,28,98,0,2,4,22,0,6,0,5

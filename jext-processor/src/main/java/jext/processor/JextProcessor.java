@@ -181,7 +181,7 @@ public class JextProcessor extends AbstractProcessor {
         if (!nonDeclared.isEmpty()) {
             var message = new StringBuilder();
             message.append("Extensions implementing extension point {} must be declared in the module-info.java file:\n\n");
-            message.append("\tprovides {} with");
+            message.append("\tprovides {} with ");
             if (implementations.isEmpty() && nonDeclared.size() == 1) {
                 message.append(extensions.get(0)).append(";\n\n");
             } else {

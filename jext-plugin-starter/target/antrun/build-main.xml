@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="maven-antrun-" default="main">
+  <target name="main">
+    <echo file="/home/luis/git/github/jext/jext-plugin-starter/target/plugin/plugins" message="io.github.luiinge:jext-plugin-starter:2.0.0-SNAPSHOT" />
+    <copy file="/home/luis/git/github/jext/jext-plugin-starter/target/jext-plugin-starter-2.0.0-SNAPSHOT.jar" tofile="/home/luis/git/github/jext/jext-plugin-starter/target/plugin/repository/redefined at build/jext-plugin-starter/2.0.0-SNAPSHOT/jext-plugin-starter-2.0.0-SNAPSHOT.jar" />
+    <zip basedir="/home/luis/git/github/jext/jext-plugin-starter/target/plugin" destfile="/home/luis/git/github/jext/jext-plugin-starter/target/jext-plugin-starter-plugin-2.0.0-SNAPSHOT.zip" />
+  </target>
+</project>
