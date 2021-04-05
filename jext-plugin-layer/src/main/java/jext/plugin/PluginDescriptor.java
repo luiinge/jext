@@ -78,9 +78,12 @@ public class PluginDescriptor {
     }
 
 
-    public ModuleLayer buildModuleLayer(ClassLoader parentClassLoader) {
-        return ModuleLayer.boot().defineModulesWithOneLoader(
-            ModuleLayer.boot().configuration().resolve(
+    public ModuleLayer buildModuleLayer(
+        ModuleLayer parentLayer,
+        ClassLoader parentClassLoader
+    ) {
+        return parentLayer.defineModulesWithOneLoader(
+            parentLayer.configuration().resolve(
                 this.moduleFinder,
                 ModuleFinder.of(),
                 allModuleNames()

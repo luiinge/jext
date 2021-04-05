@@ -1,11 +1,12 @@
     package jext.plugin;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.regex.*;
 import java.util.stream.Stream;
 
+import jext.plugin.internal.InternalUtil;
 import maven.fetcher.*;
 import org.slf4j.*;
 
@@ -74,7 +75,7 @@ public class MavenRepositoryLayout implements RepositoryLayout {
                         targetPath,
                         e.getMessage()
                     );
-                    LOGGER.debug("", e);
+                    LOGGER.debug(e.toString(), e);
                 }
             });
         }
@@ -106,7 +107,22 @@ public class MavenRepositoryLayout implements RepositoryLayout {
 
 
     @Override
-    public void fetchArtifact(String coordinates) {
-        this.mavenFetcher.fetchArtifacts(new MavenFetchRequest(coordinates));
+    public Optional<String> fetchArtifact(String coordinates) {
+        var result = this.mavenFetcher.fetchArtifacts(new MavenFetchRequest(coordinates));
+        return result.artifacts()
+           .filter(it -> it.coordinates().equals(coordinates))
+           .filter(it -> Files.exists(it.path()))
+           .map(FetchedArtifact::coordinates)
+           .findFirst();
     }
+
+    @Override
+    public boolean deleteArtifact(String coordinates) {
+        var folder = obtainArtifactFromCoordinates(coordinates)
+            .map(Path::getParent)
+            .orElse(null);
+        return folder != null && InternalUtil.deleteDirectory(folder, LOGGER);
+    }
+
+
 }

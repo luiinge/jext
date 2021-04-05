@@ -2,6 +2,9 @@ package jext.plugin;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.*;
+import java.util.stream.*;
+
 import org.slf4j.*;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -20,17 +23,22 @@ class DropinProcessor {
     }
 
 
-    public void processDropinsFolder() throws IOException {
+    public List<String> processDropins() {
         try (var walker = Files.walk(dropinsFolder, 0)) {
-            walker
+            return walker
             .filter(file -> file.endsWith(".zip"))
-            .forEach(this::processDropin);
+            .flatMap(this::processDropin)
+            .collect(Collectors.toList());
+        } catch (IOException e) {
+            LOGGER.error("Error exploring path {} : {}", dropinsFolder, e.getMessage());
+            LOGGER.debug("{}", e, e);
+            return List.of();
         }
     }
 
 
 
-    private void processDropin(Path zipFile) {
+    private Stream<String> processDropin(Path zipFile) {
         try {
             LOGGER.info("Processing drop-in file {} ...", zipFile);
             Path temporaryFolder = Files.createTempDirectory("jext-dropin");
@@ -43,9 +51,12 @@ class DropinProcessor {
             if (!temporaryWharehouse.isEmpty()) {
                 temporaryWharehouse.copyContentsTo(wharehouse);
             }
+            return temporaryWharehouse.obtainPluginDescriptors().map(PluginDescriptor::id);
+
         } catch (IOException e) {
             LOGGER.error("Error processing drop-in file {} : {}", zipFile, e.getMessage());
             LOGGER.debug("",e);
+            return Stream.empty();
         }
     }
 

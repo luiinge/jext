@@ -28,6 +28,7 @@ public class ExtensionManager {
 
     public ExtensionManager(ModuleLayerProvider layerProvider) {
         this.layerProvider = layerProvider;
+        layerProvider.addLayerModificationListener(this::clear);
     }
 
 

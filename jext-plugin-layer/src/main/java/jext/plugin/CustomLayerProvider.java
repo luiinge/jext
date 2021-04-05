@@ -10,8 +10,10 @@ import org.slf4j.*;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.toList;
 
-public class PluginLayerProvider implements ModuleLayerProvider {
+
+public class CustomLayerProvider implements ModuleLayerProvider {
 
     private final ClassLoader parentClassLoader;
     private final Map<PluginDescriptor,ModuleLayer> layers = new HashMap<>();
@@ -19,13 +21,26 @@ public class PluginLayerProvider implements ModuleLayerProvider {
     private final ModuleLayer bootLayer = ModuleLayer.boot();
 
 
-    PluginLayerProvider(PluginWharehouse pluginWharehouse, ClassLoader parentClassLoader) {
+    CustomLayerProvider(
+        PluginWharehouse pluginWharehouse,
+        ClassLoader parentClassLoader,
+        List<PluginLayerModel> customLayers
+    ) {
         this.parentClassLoader = parentClassLoader;
         pluginWharehouse.addListener(this::onPluginChange);
+
+        pluginWharehouse.installPluginsFromRepository(
+            customLayers.stream().flatMap(this::pluginsOfLayer).collect(toList())
+        );
+
+
+
+
         pluginWharehouse.obtainPluginDescriptors().forEach(plugin->
             layers.put(plugin,plugin.buildModuleLayer(bootLayer,parentClassLoader))
         );
     }
+
 
 
 
@@ -46,7 +61,7 @@ public class PluginLayerProvider implements ModuleLayerProvider {
             case ADDED:
             case ENABLED:
                 plugins.forEach( plugin ->
-                    layers.put(plugin,plugin.buildModuleLayer(bootLayer,parentClassLoader))
+                                     layers.put(plugin,plugin.buildModuleLayer(bootLayer,parentClassLoader))
                 );
                 break;
             case REMOVED:
@@ -58,5 +73,16 @@ public class PluginLayerProvider implements ModuleLayerProvider {
         listeners.forEach(Runnable::run);
     }
 
+
+
+    private Stream<String> pluginsOfLayer(PluginLayerModel customLayer) {
+        return Stream.concat(
+            Stream.concat(
+                Stream.of(customLayer.plugin()),
+                customLayer.extendsPlugin().stream()
+            ),
+            customLayer.runtimeDependencies().stream()
+        );
+    }
 
 }

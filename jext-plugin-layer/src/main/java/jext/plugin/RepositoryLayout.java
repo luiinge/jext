@@ -9,7 +9,7 @@ public interface RepositoryLayout {
 
     void configure(Properties properties);
 
-    void fetchArtifact(String coordinates);
+    Optional<String> fetchArtifact(String coordinates);
 
     void setOnline(boolean online);
 
@@ -19,4 +19,5 @@ public interface RepositoryLayout {
 
     void copyToOtherRepository(RepositoryLayout otherRepository) throws IOException;
 
+    boolean deleteArtifact(String coordinates);
 }

@@ -28,6 +28,11 @@ public class PluginRegistryFile {
         write();
     }
 
+    public void add(List<String> lines) throws IOException {
+        this.lines.addAll(lines);
+        write();
+    }
+
 
     public void append(PluginRegistryFile other) throws IOException {
         this.lines.addAll(other.lines);
@@ -39,4 +44,8 @@ public class PluginRegistryFile {
         Files.write(registryFile, lines, StandardOpenOption.APPEND);
     }
 
+    public void clear() throws IOException {
+        this.lines.clear();
+        write();
+    }
 }
