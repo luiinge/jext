@@ -13,29 +13,23 @@ public class PluginLayerModelSerializer {
         .setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
 
 
-    static class PluginLayerModelFile {
+   public static class PluginLayerModelFile {
         int modelVersion;
         List<PluginLayerModel> pluginLayers;
-    }
+   }
 
 
     @SuppressWarnings("unchecked")
     public List<PluginLayerModel> read(InputStream inputStream) throws IOException {
-        return read(mapper.readValue(inputStream, Map.class));
+        return mapper.readValue(inputStream, PluginLayerModelFile.class).pluginLayers;
     }
 
 
     @SuppressWarnings("unchecked")
     public List<PluginLayerModel> read(Reader reader) throws IOException {
-        return read(mapper.readValue(reader, Map.class));
+        return mapper.readValue(reader, PluginLayerModelFile.class).pluginLayers;
     }
 
 
-    private List<PluginLayerModel> read(Map<?,Object> map) throws IOException {
-        int modelVersion = (Integer)map.getOrDefault("modelVersion",Integer.valueOf(1));
-        if (modelVersion == 1) {
-            return mapper.convertValue(map, PluginLayerModelFile.class).pluginLayers;
-        }
-        throw new IOException("model version not implemented: "+modelVersion);
-    }
+
 }

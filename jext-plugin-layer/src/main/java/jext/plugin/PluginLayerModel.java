@@ -18,38 +18,38 @@ public class PluginLayerModel {
 
 
     public static PluginLayerModel of(String plugin) {
-        return new PluginLayerModel(plugin, null, Set.of());
+        return new PluginLayerModel(plugin, null, List.of());
     }
 
 
     public static PluginLayerModel of(String plugin, String extendsPlugin) {
-        return new PluginLayerModel(plugin, extendsPlugin, Set.of());
+        return new PluginLayerModel(plugin, extendsPlugin, List.of());
     }
 
 
     public static PluginLayerModel of(String plugin, Collection<String> runtimeDependencies) {
-        return new PluginLayerModel(plugin, null, Set.copyOf(runtimeDependencies));
+        return new PluginLayerModel(plugin, null, new ArrayList<>(runtimeDependencies));
     }
 
 
     public static PluginLayerModel of(String plugin, String extendsPlugin, Collection<String> runtimeDependencies) {
-        return new PluginLayerModel(plugin, extendsPlugin, Set.copyOf(runtimeDependencies));
+        return new PluginLayerModel(plugin, extendsPlugin, new ArrayList<>(runtimeDependencies));
     }
 
 
     private String plugin;
     private String extendsPlugin;
-    private Set<String> runtimeDependencies = new HashSet<>();
+    private List<String> runtimeDependencies = new ArrayList<>();
+
+    public PluginLayerModel () {}
 
 
-
-
-    private PluginLayerModel (
+    public PluginLayerModel (
         String plugin,
         String extendsPlugin,
-        Set<String> runtimeDependencies
+        List<String> runtimeDependencies
     ) {
-        this.plugin = plugin;
+        this.plugin = Objects.requireNonNull(plugin);
         this.extendsPlugin = extendsPlugin;
         this.runtimeDependencies = runtimeDependencies;
     }

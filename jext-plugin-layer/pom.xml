@@ -6,15 +6,12 @@
 
     <parent>
         <groupId>io.github.luiinge</groupId>
-        <artifactId>maven-java-starter</artifactId>
-        <version>11.2.0</version>
+        <artifactId>jext-parent</artifactId>
+        <version>2.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-
-    <groupId>io.github.luiinge</groupId>
     <artifactId>jext-plugin-layer</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
-
 
     <name>jExt Plugin Layer</name>
     <description>Layer provider for jExt using plugins</description>
@@ -50,7 +47,6 @@
 
 
     <properties>
-        <jext.version>2.0.0-SNAPSHOT</jext.version>
         <jackson.version>2.12.1</jackson.version>
         <zip4j.version>2.7.0</zip4j.version>
         <maven-fetcher.version>1.1.0</maven-fetcher.version>
@@ -63,7 +59,7 @@
         <dependency>
             <groupId>io.github.luiinge</groupId>
             <artifactId>jext</artifactId>
-            <version>${jext.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.luiinge</groupId>

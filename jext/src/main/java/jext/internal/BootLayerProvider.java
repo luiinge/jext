@@ -10,4 +10,9 @@ public class BootLayerProvider implements ModuleLayerProvider {
         return Stream.of(ModuleLayer.boot());
     }
 
+    @Override
+    public void addLayerModificationListener(Runnable listener) {
+
+    }
+
 }

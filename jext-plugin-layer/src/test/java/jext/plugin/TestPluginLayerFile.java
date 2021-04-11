@@ -21,7 +21,7 @@ public class TestPluginLayerFile {
         assertThat(layers.get(1).runtimeDependencies()).isNotNull().isEmpty();
         assertThat(layers.get(2).plugin()).isEqualTo("a:p3:1");
         assertThat(layers.get(2).extendsPlugin()).contains("a:p1:1");
-        assertThat(layers.get(2).runtimeDependencies()).containsExactly(
+        assertThat(layers.get(2).runtimeDependencies()).containsExactlyInAnyOrder(
             "a:p4:1",
             "a:p5:1"
         );

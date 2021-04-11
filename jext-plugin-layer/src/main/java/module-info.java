@@ -18,6 +18,7 @@ module jext.plugin {
     requires maven.fetcher;
 
     opens jext.plugin to com.fasterxml.jackson.databind;
+    opens jext.plugin.internal to com.fasterxml.jackson.databind;
 
 
 }

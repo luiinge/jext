@@ -36,8 +36,14 @@ public class ManifestGeneratorProcessor {
             return;
         }
         String groupId = pomModel.getGroupId();
+        if (pomModel.getGroupId() == null && pomModel.getParent() != null) {
+            groupId = pomModel.getParent().getGroupId();
+        }
         String artifactId = pomModel.getArtifactId();
         String version = pomModel.getVersion();
+        if (pomModel.getVersion() == null && pomModel.getParent() != null) {
+            version = pomModel.getParent().getVersion();
+        }
         List<String> dependencies = pomModel.getDependencies().stream()
             .filter(dependency -> !"test".equals(dependency.getScope()))
             .map(this::coordinates)
